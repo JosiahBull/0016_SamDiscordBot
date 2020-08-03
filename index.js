@@ -1,7 +1,7 @@
 //Shhh, I know this is bad practice but I'm lazy.
-// process.on('uncaughtException', function(err) {
-//     console.log('Caught exception: ' + err);
-// });
+process.on('uncaughtException', function(err) {
+    console.log('Caught exception: ' + err);
+});
 
 const Discord = require('discord.js');
 const client = new Discord.Client();
@@ -20,6 +20,7 @@ const triggerChar = '!';
 const notify = false;
 const sizeLimit = 3e5; //Limiit max image size to 300kb after compression before we just send online link.
 const stringLengthLimit = 1900; //char limit for strings
+const swearList = ['fuck', 'shit', 'bitch', 'cunt', 'nigga', 'nigger', 'fucker', 'bastard', 'effing', 'slut', 'piss'];
 
 //Help Config (currently requires manual update upon changes).
 const help = [
@@ -92,6 +93,16 @@ const help = [
         command: 'uptime',
         title: 'Bot Up Time',
         description: 'how long Tom has been online for.'
+    },
+    {
+        command: 'bfcount',
+        title: 'Sam Boyfriends',
+        description: `number of sam's boyfriends.`
+    },
+    {
+        command: 'hide',
+        title: 'Hide Messages',
+        description: `hide recent messages with a large block of text.`
     }
 ]
 
@@ -215,6 +226,15 @@ const ImageLoader = function(command, url, author, dateAdded = Date.now()) {
     //     this.offlineUrl = path.join(__dirname, 'images/', this.name + '.jpg'); //Set url to new path.
     //     this.size = await fs.statSync(this.offlineUrl).size; //Get size of image.
     // };
+};
+
+const persistanceDataStore = function(initPath) {
+    const savePath = initPath;
+    this.data = {
+        bfcount: 15000
+    }
+    this.saveFile = async () => await fs.writeFileSync(path.join(__dirname, savePath), JSON.stringify(this.data), {encoding: 'utf-8'});
+    this.loadFIle = async () => this.data = await JSON.parse(fs.readFileSync(path.join(__dirname, savePath)));
 };
 
 const ImageReplyDataStore = function(initPath) {
@@ -406,6 +426,7 @@ function timeSince(date) { //Copied from: https://stackoverflow.com/questions/31
 //Global Vars
 let todoStore = new TodoDataStore('todoData.json');
 let imageStore = new ImageReplyDataStore('imageData.json');
+let configStore = new persistanceDataStore('generalData.json');
 
 //Listeners
 client.on('ready', () => {
@@ -416,6 +437,14 @@ client.on('ready', () => {
 client.on('message', message => {
     let { channel, id, content, author } = message;
     if (message.author.bot) return;
+    //Check for swears
+    for (let i = 0; i < swearList.length; i++) {
+        if (message.content.toLowerCase().includes(swearList[i])) {
+            console.log(`${message.author.tag} tried to use profanity.`);
+            message.react('734648902032162868');
+        }
+      }
+    //Normal Command Phase
     if (content.substring(0, triggerChar.length) === triggerChar) {
         let args = content.toLowerCase().substring(1).split(' ');
         switch (args[0]) {
@@ -438,6 +467,7 @@ client.on('message', message => {
                 message.channel.send(null, {files: ['./images/stayHydrated.jpg']});
                 break;
             case 'todo':
+            case 'todoadd':
             case 'addtodo': {
                 let title = content.slice((`${triggerChar}${args[0]} `.length)); //Remove the first chunk of the string and then set the rest as title.
                 if (title.length === 0) {
@@ -454,6 +484,7 @@ client.on('message', message => {
                 message.react('👍'); //React to say we have acknowledged the request.
                 break;
             }
+            case 'todoremove':
             case 'removetodo': {
                 if (args[1] === undefined || args[1] === null) {
                     message.channel.send('Oops, looks like you forgot to tell me what to remove!');
@@ -506,6 +537,7 @@ client.on('message', message => {
                 message.react('👍'); //React to say we have acknowledged the request.
                 break;
             }
+            case 'donelist':
             case 'listdone': {
                 let scopedData = todoStore.data.completedTodos;
                 let stringArray = todoListCreateResponse(scopedData);
@@ -525,6 +557,7 @@ client.on('message', message => {
                 message.channel.send(messageContent);
                 break;
             }
+            case 'imageadd':
             case 'addimage': {
                 if (args.length < 2 && message.attachments.size === 0) {
                     message.channel.send('Oops! You have not included all of the required parameters.');
@@ -554,6 +587,8 @@ client.on('message', message => {
                 message.react('👍');
                 break;
             }
+            case 'imagelist':
+            case 'imageslist':
             case 'listimages':
             case 'listimage': {
                 let scopedData = Object.values(imageStore.data.images);                
@@ -574,6 +609,7 @@ client.on('message', message => {
                 });
                 break;
             }
+            case 'imageremove':
             case 'removeimage': {
                 if (args.length < 2) {
                     message.channel.send('Oops! Looks like you forgot to tell me which image to remove.');
@@ -596,6 +632,16 @@ client.on('message', message => {
                 setTimeout(() => {
                     message.channel.send(`I still love you. <3`);
                 }, 4000);
+                break;
+            }
+            case 'bfcount': {
+                configStore.data.bfcount += Math.floor((Math.random() * 100000)); //Update file with new count.
+                configStore.saveFile(); //Save file back to disk.
+                message.channel.send(`Sam currently has ${configStore.data.bfcount} boyfriends, that's crazy!`);
+                break;
+            }
+            case 'hide': {
+                message.channel.send(`​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​​\n​​\n​​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​​\n​​\n​​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n`);
                 break;
             }
             default:
