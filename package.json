@@ -11,6 +11,7 @@
   "dependencies": {
     "axios": "^0.19.2",
     "discord.js": "^12.2.0",
+    "dotenv": "^8.2.0",
     "gifsicle": "^5.1.0",
     "jimp": "^0.14.0",
     "pngquant-bin": "^6.0.0",
