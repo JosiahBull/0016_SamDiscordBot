@@ -182,50 +182,6 @@ const ImageLoader = function(command, url, author, dateAdded = Date.now()) {
     this.name = uuid();
     this.offlineUrl;
     this.size;
-    // this.checkType = async () => {
-    //     if (this.ext === '.png') {
-    //         console.log('Image was png, converting to jpg.');
-    //         let outpath = path.join(__dirname, '/images/downloading', `${this.name}.jpg`);
-    //         this.ext = '.jpg';
-    //         let checkPhase = await Jimp.read(this.offlineUrl);
-    //         await checkPhase.writeAsync(outpath);
-    //         console.log('Deleting original png.');
-    //         await fs.unlinkSync(this.offlineUrl);
-    //         this.offlineUrl = outpath;
-    //     } 
-    // }
-    // this.compress = async () => {
-    //     console.log('Compressing file.')
-    //     INPUT_path_to_your_images = this.offlineUrl.toString().replace(/\\/g, '/');
-    //     OUTPUT_path = 'images/'
-    //     await util.promisify(compress_images)(INPUT_path_to_your_images, OUTPUT_path, {compress_force: false, statistic: true, autoupdate: true}, false,
-    //         {jpg: {engine: 'mozjpeg', command: ['-quality', '30']}},
-    //         {png: {engine: 'pngquant', command: ['--quality=20-50']}},
-    //         {svg: {engine: 'svgo', command: '--multipass'}},
-    //         {gif: {engine: 'gifsicle', command: ['--colors', '64', '--use-col=web']}});
-    // }
-    // //Download image and get a local url.
-    // this.downloadImage = async () => {
-    //     console.log(`Downloading image from link: ${this.onlineUrl}, which has extension ${this.ext}\n`);
-    //     const writer = fs.createWriteStream(path.join(__dirname, '/images/downloading', this.name + this.ext));
-    //     this.offlineUrl = path.join(__dirname, '/images/downloading', this.name + this.ext);
-    //     let response = await axios({
-    //         url: this.onlineUrl,
-    //         method: 'GET',
-    //         responseType: 'stream'
-    //     });
-    //     response.data.pipe(writer);
-    //     await new Promise((resolve, reject) => {
-    //         writer.on('finish', resolve)
-    //         writer.on('error', reject)
-    //     })
-    //     await this.checkType();
-    //     await this.compress();
-    //     console.log('Deleting uncompressed jpg.');
-    //     await fs.unlinkSync(this.offlineUrl); //Remove old file.
-    //     this.offlineUrl = path.join(__dirname, 'images/', this.name + '.jpg'); //Set url to new path.
-    //     this.size = await fs.statSync(this.offlineUrl).size; //Get size of image.
-    // };
 };
 
 const persistanceDataStore = function(initPath) {
@@ -451,6 +407,12 @@ client.on('message', message => {
             case 'ping':
                 client.channels.resolve(channel.id).send('pong');
                 break;
+            case 'bing':
+                client.channels.resolve(channel.id).send('bong');
+                setTimeout(() => {
+                    message.channel.send(`bitch`);
+                }, 4000);
+                break;
             case 'help': 
                 let messageStrings = ['Greetings! The current commands are as follows:\n'];
                 help.forEach((helpItem, index) => {
@@ -559,7 +521,7 @@ client.on('message', message => {
             }
             case 'imageadd':
             case 'addimage': {
-                if (args.length < 2 && message.attachments.size === 0) {
+                if (args.length < 2 && message.attachments.size === 0 ) {
                     message.channel.send('Oops! You have not included all of the required parameters.');
                     break;
                 }
