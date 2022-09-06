@@ -1,0 +1,9 @@
+version: '3.3'
+
+services:
+  tombot:
+    build: .
+    container_name: tombot
+    restart: always
+    environment:
+      - BOT_TOKEN

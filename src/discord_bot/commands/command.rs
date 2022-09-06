@@ -1,6 +1,6 @@
-use serenity::{model::{Permissions, prelude::interaction::{application_command::ApplicationCommandInteraction, autocomplete::AutocompleteInteraction}}, async_trait, builder::{CreateApplicationCommand, CreateAutocompleteResponse, CreateInteractionResponse}, prelude::Context};
+use serenity::{model::{Permissions, prelude::{interaction::{application_command::ApplicationCommandInteraction, autocomplete::AutocompleteInteraction}, command::CommandType}}, async_trait, builder::{CreateApplicationCommand, CreateAutocompleteResponse, CreateApplicationCommands}, prelude::Context};
 
-use crate::AppState;
+use crate::{AppState, discord_bot::commands::{hide::HideCommand, ping::PingCommand}};
 
 use super::util::CommandResponse;
 
@@ -10,10 +10,10 @@ const DEFAULT_PERMISSIONS: Permissions = Permissions::ADMINISTRATOR;
 #[async_trait]
 pub trait Command<'a>: TryFrom<&'a ApplicationCommandInteraction> {
     /// Get the name of the command
-    fn name(&self) -> &'static str;
+    fn name() -> &'static str;
 
     /// Get the description of the command
-    fn description(&self) -> &'static str;
+    fn description() -> &'static str;
 
     /// Get the discord defined usage of this command, to be sent to discord
     fn get_application_command_options(command: &mut CreateApplicationCommand);
@@ -50,11 +50,11 @@ macro_rules! application_command {
                 v_base.create_application_command(|command| {
                     <$x>::get_application_command_options(command);
                     command
-                        .name(<$x>::get_name())
-                        .description(<$x>::get_description())
+                        .name(<$x>::name())
+                        .description(<$x>::description())
                         .default_member_permissions(DEFAULT_PERMISSIONS)
                         .dm_permission(false)
-                        .kind(ApplicationCommandType::ChatInput)
+                        .kind(CommandType::ChatInput)
                 });
             )*
         }
@@ -69,7 +69,7 @@ macro_rules! command {
             fn assert_command<'a, T: Command<'a, Error=String>>() {}
             $(
                 assert_command::<$x>();
-                if ($cmd).data.name == <$x>::get_name() {
+                if ($cmd).data.name == <$x>::name() {
                     if let Ok(value) = <$x>::try_from($cmd) {
                         return value.handle_application_command($cmd, $state, $context).await
                     }
@@ -88,11 +88,34 @@ macro_rules! autocomplete {
             fn assert_autocomplete<'a, T: AutocompleteCommand<'a, Error=String>>() {}
             $(
                 assert_autocomplete::<$x>();
-                if ($cmd).data.name == <$x>::get_name() {
+                if ($cmd).data.name == <$x>::name() {
                     return <$x>::autocomplete($cmd, $state, $context).await
                 }
             )*
             Err(CommandResponse::InternalFailure(String::from("Unsupported Command")))
         }
     };
+}
+
+pub fn application_command() -> CreateApplicationCommands {
+    let mut base = CreateApplicationCommands::default();
+    application_command!(&mut base, HideCommand, PingCommand);
+    base
+}
+
+pub async fn command<'a> (
+    command: &'a ApplicationCommandInteraction,
+    app_state: &'a AppState,
+    context: &'a Context,
+) -> Result<CommandResponse<'a>, CommandResponse<'a>> {
+    command!(command, app_state, context, HideCommand, PingCommand)
+}
+
+#[allow(dead_code, unused_variables)]
+pub async fn autocomplete<'a> (
+    command: &'a AutocompleteInteraction,
+    app_state: &'a AppState,
+    context: &'a Context,
+) -> Result<CreateAutocompleteResponse, CommandResponse<'a>> {
+    autocomplete!(command, app_state, context, )
 }
