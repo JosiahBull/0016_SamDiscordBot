@@ -5,8 +5,6 @@ use serenity::{
     builder::{CreateInteractionResponse}, model::prelude::{interaction::InteractionResponseType},
 };
 
-use crate::AppState;
-
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code, clippy::missing_docs_in_private_items)]
 pub enum FailureMessageKind {
