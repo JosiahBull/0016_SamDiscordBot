@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dotenv().ok();
 
-    let token = std::env::var("DISCORD_TOKEN")?;
+    let token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
 
     info!("spawning discord handler");
     let discord_handle = tokio::task::spawn(async move {

@@ -127,7 +127,7 @@ impl EventHandler for Handler {
         }
 
         // NOTE: it's easy to hit rate limits, so we need to be careful about this
-        let image = match read_image("assets/profile.png") {
+        let image = match read_image("assets/profile.jpg") {
             Ok(image) => image,
             Err(e) => {
                 error!("Error reading logo image: {:?}", e);
@@ -139,8 +139,8 @@ impl EventHandler for Handler {
             .user
             .edit(&ctx, |p| {
                 p.avatar(Some(&image))
-                    .email("info@sylo.io")
-                    .username("D.I.A.N.A")
+                    .email("info@josiahbull.com")
+                    .username("The NPC")
             })
             .await
             .unwrap_or_else(|_| error!("unable to set profile picture"));
