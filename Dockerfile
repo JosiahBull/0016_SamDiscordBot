@@ -17,5 +17,6 @@ RUN cargo build --release
 FROM debian:bullseye-slim AS runtime
 WORKDIR /app
 COPY --from=builder /app/target/release/tom_bot /app/
+COPY --from=builder /app/assets/* /assets/
 
 CMD [ "/app/tom_bot" ]
