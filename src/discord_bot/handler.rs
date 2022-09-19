@@ -10,19 +10,19 @@ use serenity::{
     client::{Context, EventHandler},
     model::{
         gateway::Ready,
-        guild::{Guild, Member, UnavailableGuild}, prelude::interaction::Interaction,
+        guild::{Guild, Member, UnavailableGuild},
+        prelude::interaction::Interaction,
     },
 };
 
 use serenity::utils::read_image;
 
-use crate::{
-    discord_bot::{
-        guilds::GuildHandler,
-    }, AppState,
-};
+use crate::{discord_bot::guilds::GuildHandler, AppState};
 
-use super::{utils::BotDiscordId, manager::{InternalSender, DiscordEvent}};
+use super::{
+    manager::{DiscordEvent, InternalSender},
+    utils::BotDiscordId,
+};
 
 #[allow(clippy::missing_docs_in_private_items)]
 pub struct Handler;

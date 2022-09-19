@@ -1,4 +1,11 @@
-use serenity::{async_trait, builder::{CreateApplicationCommand, CreateInteractionResponse}, model::prelude::interaction::{application_command::ApplicationCommandInteraction, InteractionResponseType}, prelude::Context};
+use serenity::{
+    async_trait,
+    builder::{CreateApplicationCommand, CreateInteractionResponse},
+    model::prelude::interaction::{
+        application_command::ApplicationCommandInteraction, InteractionResponseType,
+    },
+    prelude::Context,
+};
 
 use crate::AppState;
 
@@ -23,10 +30,10 @@ impl<'a> Command<'a> for HideCommand {
         "Creates a large message to hide previous messages in the chat"
     }
 
-    fn get_application_command_options(_: &mut CreateApplicationCommand) { }
+    fn get_application_command_options(_: &mut CreateApplicationCommand) {}
 
     #[allow(clippy::invisible_characters)]
-    async fn handle_application_command<'b> (
+    async fn handle_application_command<'b>(
         self,
         _: &'b ApplicationCommandInteraction,
         _: &'b AppState,

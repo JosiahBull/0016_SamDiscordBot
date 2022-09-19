@@ -1,6 +1,23 @@
-use serenity::{model::{Permissions, prelude::{interaction::{application_command::ApplicationCommandInteraction, autocomplete::AutocompleteInteraction}, command::CommandType}}, async_trait, builder::{CreateApplicationCommand, CreateAutocompleteResponse, CreateApplicationCommands}, prelude::Context};
+use serenity::{
+    async_trait,
+    builder::{CreateApplicationCommand, CreateApplicationCommands, CreateAutocompleteResponse},
+    model::{
+        prelude::{
+            command::CommandType,
+            interaction::{
+                application_command::ApplicationCommandInteraction,
+                autocomplete::AutocompleteInteraction,
+            },
+        },
+        Permissions,
+    },
+    prelude::Context,
+};
 
-use crate::{AppState, discord_bot::commands::{hide::HideCommand, ping::PingCommand}};
+use crate::{
+    discord_bot::commands::{hide::HideCommand, ping::PingCommand, say::SayCommand},
+    AppState,
+};
 
 use super::util::CommandResponse;
 
@@ -19,7 +36,7 @@ pub trait Command<'a>: TryFrom<&'a ApplicationCommandInteraction> {
     fn get_application_command_options(command: &mut CreateApplicationCommand);
 
     /// handle the execution of this application command
-    async fn handle_application_command<'b> (
+    async fn handle_application_command<'b>(
         self,
         interaction: &'b ApplicationCommandInteraction,
         app_state: &'b AppState,
@@ -99,23 +116,30 @@ macro_rules! autocomplete {
 
 pub fn application_command() -> CreateApplicationCommands {
     let mut base = CreateApplicationCommands::default();
-    application_command!(&mut base, HideCommand, PingCommand);
+    application_command!(&mut base, HideCommand, PingCommand, SayCommand);
     base
 }
 
-pub async fn command<'a> (
+pub async fn command<'a>(
     command: &'a ApplicationCommandInteraction,
     app_state: &'a AppState,
     context: &'a Context,
 ) -> Result<CommandResponse<'a>, CommandResponse<'a>> {
-    command!(command, app_state, context, HideCommand, PingCommand)
+    command!(
+        command,
+        app_state,
+        context,
+        HideCommand,
+        PingCommand,
+        SayCommand
+    )
 }
 
 #[allow(dead_code, unused_variables)]
-pub async fn autocomplete<'a> (
+pub async fn autocomplete<'a>(
     command: &'a AutocompleteInteraction,
     app_state: &'a AppState,
     context: &'a Context,
 ) -> Result<CreateAutocompleteResponse, CommandResponse<'a>> {
-    autocomplete!(command, app_state, context, )
+    autocomplete!(command, app_state, context,)
 }

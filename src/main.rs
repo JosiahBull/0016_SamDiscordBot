@@ -1,16 +1,14 @@
 mod discord_bot;
 
 use dotenv::dotenv;
-use log::{info, error};
+use log::{error, info};
 use serenity::prelude::TypeMapKey;
 use std::{fmt::Debug, process::exit};
 
 use crate::discord_bot::DiscordBot;
 
 /// A connection to the database, representing the stored "state" of the app
-pub struct AppState {
-
-}
+pub struct AppState {}
 
 impl Debug for AppState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -20,7 +18,7 @@ impl Debug for AppState {
 
 impl Clone for AppState {
     fn clone(&self) -> Self {
-        Self {  }
+        Self {}
     }
 }
 
@@ -66,7 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let discord_handle = tokio::task::spawn(async move {
         let builder = DiscordBot::builder()
             .token(token)
-            .state(AppState {  })
+            .state(AppState {})
             .build();
 
         let bot = match builder {

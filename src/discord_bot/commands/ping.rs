@@ -1,4 +1,11 @@
-use serenity::{async_trait, builder::{CreateApplicationCommand, CreateInteractionResponse}, model::prelude::interaction::{application_command::ApplicationCommandInteraction, InteractionResponseType}, prelude::Context};
+use serenity::{
+    async_trait,
+    builder::{CreateApplicationCommand, CreateInteractionResponse},
+    model::prelude::interaction::{
+        application_command::ApplicationCommandInteraction, InteractionResponseType,
+    },
+    prelude::Context,
+};
 
 use crate::AppState;
 
@@ -23,9 +30,9 @@ impl<'a> Command<'a> for PingCommand {
         "Pings the bot, expect a pong response."
     }
 
-    fn get_application_command_options(_: &mut CreateApplicationCommand) { }
+    fn get_application_command_options(_: &mut CreateApplicationCommand) {}
 
-    async fn handle_application_command<'b> (
+    async fn handle_application_command<'b>(
         self,
         _: &'b ApplicationCommandInteraction,
         _: &'b AppState,
@@ -33,9 +40,9 @@ impl<'a> Command<'a> for PingCommand {
     ) -> Result<CommandResponse<'b>, CommandResponse<'b>> {
         Ok(CommandResponse::ComplexSuccess(
             CreateInteractionResponse::default()
-            .kind(InteractionResponseType::ChannelMessageWithSource)
-            .interaction_response_data(|data| data.content("Pong!").ephemeral(true))
-            .to_owned()
+                .kind(InteractionResponseType::ChannelMessageWithSource)
+                .interaction_response_data(|data| data.content("Pong!").ephemeral(true))
+                .to_owned(),
         ))
     }
 }
