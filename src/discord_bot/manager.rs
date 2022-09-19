@@ -3,17 +3,19 @@
 
 use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
-use log::{error};
+use log::error;
 use serenity::{
+    futures::{stream::FuturesUnordered, StreamExt},
+    model::prelude::interaction::Interaction,
     prelude::{GatewayIntents, TypeMapKey},
-    Client, model::prelude::interaction::Interaction, futures::{stream::FuturesUnordered, StreamExt},
+    Client,
 };
 use tokio::{
     select,
     sync::mpsc::{unbounded_channel, UnboundedSender},
 };
 
-use super::{handler::Handler, guilds::GuildHandler};
+use super::{guilds::GuildHandler, handler::Handler};
 
 /// An event that may occur between the various discord services
 #[derive(Debug)]
@@ -84,10 +86,7 @@ impl<T> DiscordBotBuilder<T> {
             None => return Err("No app state provided".to_string()),
         };
 
-        Ok(DiscordBot {
-            token,
-            app_state,
-        })
+        Ok(DiscordBot { token, app_state })
     }
 }
 

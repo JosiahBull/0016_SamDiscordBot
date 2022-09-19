@@ -2,7 +2,7 @@
 
 use log::{debug, error, info, warn};
 use serenity::{
-    builder::{CreateInteractionResponse}, model::prelude::{interaction::InteractionResponseType},
+    builder::CreateInteractionResponse, model::prelude::interaction::InteractionResponseType,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -103,4 +103,3 @@ impl<'a> CommandResponse<'a> {
 }
 
 /////////// HELPER FUNCTIONS ///////////
-
