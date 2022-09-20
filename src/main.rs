@@ -1,3 +1,4 @@
+mod database;
 mod discord_bot;
 mod google_api;
 mod trademe_api;
@@ -48,6 +49,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         trademe_handler.run().await;
     });
+
+    let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let db_handle = database::DatabaseHandle::connect(db_url).await?;
 
     info!("spawning discord handler");
     let discord_state = state.clone();
