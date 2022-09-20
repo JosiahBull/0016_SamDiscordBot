@@ -100,7 +100,7 @@ pub struct GuildHandler {
     pub guild_name: String,
     /// the sender to transmit messages to the overall event loop, used to communicate with external modules (e.g. the auth module)
     sender: InternalSender,
-    /// access to the general bot context, and data that is stored globally on it, also used for spawning discord tasks to run asynchonrously
+    /// access to the general bot context, and data that is stored globally on it, also used for spawning discord tasks to run asynchronously
     /// inside of the serenity context
     context: Context,
     /// a handle to the database connected to the bot
