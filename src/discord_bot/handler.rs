@@ -42,6 +42,22 @@ impl EventHandler for Handler {
         }
     }
 
+    async fn message(&self, ctx: Context, message: Message) {
+        let reader = ctx.data.read().await;
+
+        let internal_sender = match reader.get::<InternalSender>() {
+            Some(internal_sender) => internal_sender,
+            None => {
+                error!("InternalSender not found in context");
+                return;
+            }
+        };
+
+        if let Err(e) = internal_sender.send(DiscordEvent::Message(Box::new(message))) {
+            error!("Error sending message to internal sender: {:?}", e);
+        }
+    }
+
     async fn guild_member_addition(&self, _ctx: Context, _new_member: Member) {
         warn!("New member ***REMOVED***ined, handler function not yet implemented");
         // todo!() //TODO: use this to readd a users roles if they have previously been verified
@@ -110,22 +126,6 @@ impl EventHandler for Handler {
 
         if let Err(e) = internal_sender.send(DiscordEvent::DeletedGuild(guild.id.0.into())) {
             error!("Error sending deleted guild to internal sender: {:?}", e);
-        }
-    }
-
-    async fn message(&self, ctx: Context, new_message: Message) {
-        let data_read = ctx.data.read().await;
-
-        let internal_sender = match data_read.get::<InternalSender>() {
-            Some(internal_sender) => internal_sender,
-            None => {
-                error!("InternalSender not found in context");
-                return;
-            }
-        };
-
-        if let Err(e) = internal_sender.send(DiscordEvent::Message(Box::new(new_message))) {
-            error!("Error sending new message to internal sender: {:?}", e);
         }
     }
 
