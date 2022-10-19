@@ -1,56 +1,17 @@
 mod discord_bot;
+mod google_api;
+
+mod logging;
+mod state;
 
 use dotenv::dotenv;
 use log::{error, info};
-use serenity::prelude::TypeMapKey;
-use std::{fmt::Debug, process::exit};
+use std::process::exit;
 
-use crate::discord_bot::DiscordBot;
-
-/// A connection to the database, representing the stored "state" of the app
-pub struct AppState {}
-
-impl Debug for AppState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AppState").finish()
-    }
-}
-
-impl Clone for AppState {
-    fn clone(&self) -> Self {
-        Self {}
-    }
-}
-
-impl TypeMapKey for AppState {
-    type Value = AppState;
-}
-
-fn configure_logger() -> Result<(), Box<dyn std::error::Error>> {
-    // Configure logger at runtime
-    fern::Dispatch::new()
-        // Perform allocation-free log formatting
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "{}[{}][{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d %I:%M:%S %P]"),
-                record.target(),
-                record.level(),
-                message
-            ))
-        })
-        .level(log::LevelFilter::Debug)
-        .level_for("h2", log::LevelFilter::Info)
-        .level_for("hyper", log::LevelFilter::Info)
-        .level_for("tracing", log::LevelFilter::Warn)
-        .level_for("serenity", log::LevelFilter::Warn)
-        .level_for("reqwest", log::LevelFilter::Warn)
-        .level_for("rustls", log::LevelFilter::Warn)
-        .chain(std::io::stdout())
-        .apply()?;
-
-    Ok(())
-}
+use crate::{
+    discord_bot::DiscordBot, google_api::maps::GoogleMapsApi, logging::configure_logger,
+    state::AppState,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -58,13 +19,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dotenv().ok();
 
-    let token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
+    let discord_token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
+    let google_maps_token =
+        std::env::var("GOOGLE_MAPS_TOKEN").expect("GOOGLE_MAPS_TOKEN must be set");
+
+    let state = AppState::new();
+
+    info!("spawning google maps handler");
+    let mut google_maps_state = state.clone();
+    let google_maps_handler = tokio::spawn(async move {
+        let mut google_maps_handler = GoogleMapsApi::builder().key(google_maps_token).build();
+
+        google_maps_state.set_google_api(google_maps_handler.handle());
+
+        google_maps_handler.run().await
+    });
 
     info!("spawning discord handler");
+    let discord_state = state.clone();
     let discord_handle = tokio::task::spawn(async move {
         let builder = DiscordBot::builder()
-            .token(token)
-            .state(AppState {})
+            .discord_token(discord_token)
+            .state(discord_state)
             .build();
 
         let bot = match builder {
@@ -84,6 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     tokio::pin!(discord_handle);
+    tokio::pin!(google_maps_handler);
 
     loop {
         tokio::select! {
@@ -95,6 +72,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             _ = &mut discord_handle => {
                 info!("discord handler shut down");
+                break;
+            }
+
+            _ = google_maps_handler => {
+                info!("google maps handler shut down");
                 break;
             }
         }

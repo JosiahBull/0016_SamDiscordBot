@@ -10,7 +10,7 @@ use serenity::{
     prelude::Context,
 };
 
-use crate::AppState;
+use crate::state::AppState;
 
 use super::{
     command::Command,
