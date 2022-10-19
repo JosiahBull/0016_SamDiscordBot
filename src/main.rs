@@ -1,5 +1,6 @@
 mod discord_bot;
 mod google_api;
+mod trademe_api;
 
 mod logging;
 mod state;
@@ -32,7 +33,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         google_maps_state.set_google_api(google_maps_handler.handle());
 
-        google_maps_handler.run().await
+        google_maps_handler.run().await;
+    });
+
+    info!("spawning trademe handler");
+    let mut tradme_state = state.clone();
+    let trademe_handler = tokio::spawn(async move {
+        let mut trademe_handler = Trademe::builder().build();
+        tradme_state.set_tradme_api(trademe_handler.handle());
+
+        trademe_handler.run().await;
     });
 
     info!("spawning discord handler");

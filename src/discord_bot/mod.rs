@@ -5,6 +5,7 @@ mod commands;
 mod guilds;
 mod handler;
 mod manager;
+mod messages;
 mod utils;
 
 pub use manager::{DiscordBot, DiscordBotBuilder};

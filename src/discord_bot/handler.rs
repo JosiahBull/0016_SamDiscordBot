@@ -1,8 +1,5 @@
 //! This module describes how interactions with the discord api should be handled initially
-//! it recieves events from the discord WS and reacts to them accordingly.
-
-//TODO: ideally we'd want to handle people ***REMOVED***ining/leaving guilds, so that we can either purge their roles when they leave
-// or readd them if they happen to re***REMOVED***in later down the line.
+//! it receives events from the discord WS and reacts to them accordingly.
 
 use log::{error, info, warn};
 use serenity::{
@@ -11,7 +8,7 @@ use serenity::{
     model::{
         gateway::Ready,
         guild::{Guild, Member, UnavailableGuild},
-        prelude::interaction::Interaction,
+        prelude::{interaction::Interaction, Message},
     },
 };
 
@@ -54,7 +51,7 @@ impl EventHandler for Handler {
     async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
         let data_read = ctx.data.read().await;
 
-        //wait for botdiscordid to exist in the context
+        //wait for the bot's discord id to exist in the context
         while data_read.get::<BotDiscordId>().is_none() {
             tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
         }
@@ -113,6 +110,22 @@ impl EventHandler for Handler {
 
         if let Err(e) = internal_sender.send(DiscordEvent::DeletedGuild(guild.id.0)) {
             error!("Error sending deleted guild to internal sender: {:?}", e);
+        }
+    }
+
+    async fn message(&self, ctx: Context, new_message: Message) {
+        let data_read = ctx.data.read().await;
+
+        let internal_sender = match data_read.get::<InternalSender>() {
+            Some(internal_sender) => internal_sender,
+            None => {
+                error!("InternalSender not found in context");
+                return;
+            }
+        };
+
+        if let Err(e) = internal_sender.send(DiscordEvent::Message(Box::new(new_message))) {
+            error!("Error sending new message to internal sender: {:?}", e);
         }
     }
 
