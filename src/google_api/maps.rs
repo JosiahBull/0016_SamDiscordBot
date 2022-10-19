@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 const API_URL: &str = "https://maps.googleapis.com/maps/api/distancematrix/json";
@@ -29,7 +29,7 @@ impl std::fmt::Display for GoogleMapError {
 
 impl std::error::Error for GoogleMapError {}
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct GoogleMapsData {
     pub destination_addresses: Vec<String>,
     pub origin_addresses: Vec<String>,
@@ -37,25 +37,25 @@ pub struct GoogleMapsData {
     pub status: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct GoogleMapsRow {
     pub elements: Vec<GoogleMapsElement>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct GoogleMapsElement {
     pub distance: GoogleMapsDistance,
     pub duration: GoogleMapsDuration,
     pub status: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct GoogleMapsDistance {
     pub text: String,
     pub value: u32,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct GoogleMapsDuration {
     pub text: String,
     pub value: u32,

@@ -6,7 +6,10 @@ use log::{error, info, trace, warn};
 use serenity::{
     client::Context,
     futures::{stream::FuturesUnordered, StreamExt},
-    model::{id::GuildId, prelude::interaction::Interaction},
+    model::{
+        id::GuildId,
+        prelude::{interaction::Interaction, Message},
+    },
 };
 use tokio::{
     select,
@@ -87,6 +90,10 @@ async fn handle_admin_interaction(interaction: Interaction, context: Context, ap
         // ping commands should not get here
         _ => unreachable!(),
     }
+}
+
+async fn handle_sent_message(message: Message, context: Context, app_state: AppState) {
+    todo!() //TODO
 }
 
 /// a handler which manages a guild, interacting with and responding to all events as required
@@ -206,6 +213,13 @@ impl GuildHandler {
                                         handle_admin_interaction(*interaction, t_ctx, t_app_state).await;
                                     }))
                                 },
+                                DiscordEvent::Message(msg) => {
+                                    let t_ctx = context.clone();
+                                    let t_app_state = app_state.clone();
+                                    task_handles.push(tokio::task::spawn(async move {
+                                        handle_sent_message(*msg, t_ctx, t_app_state).await;
+                                    }))
+                                }
                                 e => {
                                     error!("bot ignoring unexpected event: {:?}", e);
                                 }
