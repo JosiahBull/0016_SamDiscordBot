@@ -55,15 +55,15 @@ impl DerefMut for InternalSender {
 /// A builder for the discord bot
 pub struct DiscordBotBuilder<T> {
     /// the discord token to use for authentication with the discord api
-    token: Option<String>,
+    discord_token: Option<String>,
     /// the database to use for storing data
     app_state: Option<T>,
 }
 
 impl<T> DiscordBotBuilder<T> {
     /// set the token for the discord bot
-    pub fn token(mut self, token: String) -> Self {
-        self.token = Some(token);
+    pub fn discord_token(mut self, token: String) -> Self {
+        self.discord_token = Some(token);
         self
     }
 
@@ -76,7 +76,7 @@ impl<T> DiscordBotBuilder<T> {
 
     /// Build the bot, and create a [DiscordBot] instance.
     pub fn build(self) -> Result<DiscordBot<T>, String> {
-        let token = match self.token {
+        let discord_token = match self.discord_token {
             Some(token) => token,
             None => return Err("No token provided".to_string()),
         };
@@ -86,14 +86,17 @@ impl<T> DiscordBotBuilder<T> {
             None => return Err("No app state provided".to_string()),
         };
 
-        Ok(DiscordBot { token, app_state })
+        Ok(DiscordBot {
+            discord_token,
+            app_state,
+        })
     }
 }
 
 impl<T> Default for DiscordBotBuilder<T> {
     fn default() -> Self {
         DiscordBotBuilder {
-            token: None,
+            discord_token: None,
             app_state: None,
         }
     }
@@ -103,7 +106,7 @@ impl<T> Default for DiscordBotBuilder<T> {
 /// supports graceful and force shutdown, among many other thingss
 pub struct DiscordBot<T> {
     /// the discord token to use for authentication with the discord api
-    token: String,
+    discord_token: String,
     /// the database to use for storing data
     app_state: T,
 }
@@ -120,7 +123,7 @@ impl<T: Send + Sync + 'static + Clone + TypeMapKey<Value = T>> DiscordBot<T> {
     pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
         let intents = GatewayIntents::all();
 
-        let mut client = Client::builder(&self.token, intents)
+        let mut client = Client::builder(&self.discord_token, intents)
             .event_handler(Handler)
             .await?;
 

@@ -40,6 +40,7 @@ pub enum CommandResponse<'a> {
     /// but will instead log it to the console, and return a generic "internal error" resposne
     /// to the user
     InternalFailure(String),
+    NoResponse,
 }
 
 impl<'a> CommandResponse<'a> {
@@ -75,29 +76,36 @@ impl<'a> CommandResponse<'a> {
     }
 
     /// generate a response to be sent to the user from the CommandResponse type
-    pub fn generate_response(self) -> CreateInteractionResponse<'a> {
+    pub fn generate_response(self) -> Option<CreateInteractionResponse<'a>> {
         match self {
-            CommandResponse::BasicSuccess(message) => CreateInteractionResponse::default()
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|data| data.ephemeral(true).content(message))
-                .to_owned(),
-            CommandResponse::ComplexSuccess(message) => message,
-            CommandResponse::BasicFailure(message) => CreateInteractionResponse::default()
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|data| data.ephemeral(true).content(message))
-                .to_owned(),
-            CommandResponse::ComplexFailure { response, .. } => {
+            CommandResponse::BasicSuccess(message) => Some(
+                CreateInteractionResponse::default()
+                    .kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|data| data.ephemeral(true).content(message))
+                    .to_owned(),
+            ),
+            CommandResponse::ComplexSuccess(message) => Some(message),
+            CommandResponse::BasicFailure(message) => Some(
+                CreateInteractionResponse::default()
+                    .kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|data| data.ephemeral(true).content(message))
+                    .to_owned(),
+            ),
+            CommandResponse::ComplexFailure { response, .. } => Some(
                 CreateInteractionResponse::default()
                     .kind(InteractionResponseType::ChannelMessageWithSource)
                     .interaction_response_data(|data| data.ephemeral(true).content(response))
-                    .to_owned()
-            }
-            CommandResponse::InternalFailure(_) => CreateInteractionResponse::default()
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|data| {
-                    data.ephemeral(true).content("An internal error occurred.")
-                })
-                .to_owned(),
+                    .to_owned(),
+            ),
+            CommandResponse::InternalFailure(_) => Some(
+                CreateInteractionResponse::default()
+                    .kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|data| {
+                        data.ephemeral(true).content("An internal error occurred.")
+                    })
+                    .to_owned(),
+            ),
+            CommandResponse::NoResponse => None,
         }
     }
 }

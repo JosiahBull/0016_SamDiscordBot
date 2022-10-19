@@ -17,7 +17,7 @@ use serenity::{
 
 use serenity::utils::read_image;
 
-use crate::{discord_bot::guilds::GuildHandler, AppState};
+use crate::{discord_bot::guilds::GuildHandler, state::AppState};
 
 use super::{
     manager::{DiscordEvent, InternalSender},

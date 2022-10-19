@@ -1,6 +1,7 @@
 mod command;
 mod util;
 
+mod distance;
 mod hide;
 mod ping;
 mod say;

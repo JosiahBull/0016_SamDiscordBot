@@ -15,8 +15,10 @@ use serenity::{
 };
 
 use crate::{
-    discord_bot::commands::{hide::HideCommand, ping::PingCommand, say::SayCommand},
-    AppState,
+    discord_bot::commands::{
+        distance::DistanceCommand, hide::HideCommand, ping::PingCommand, say::SayCommand,
+    },
+    state::AppState,
 };
 
 use super::util::CommandResponse;
@@ -116,7 +118,13 @@ macro_rules! autocomplete {
 
 pub fn application_command() -> CreateApplicationCommands {
     let mut base = CreateApplicationCommands::default();
-    application_command!(&mut base, HideCommand, PingCommand, SayCommand);
+    application_command!(
+        &mut base,
+        HideCommand,
+        PingCommand,
+        SayCommand,
+        DistanceCommand
+    );
     base
 }
 
@@ -131,7 +139,8 @@ pub async fn command<'a>(
         context,
         HideCommand,
         PingCommand,
-        SayCommand
+        SayCommand,
+        DistanceCommand
     )
 }
 
