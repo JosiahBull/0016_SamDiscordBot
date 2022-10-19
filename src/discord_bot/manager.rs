@@ -3,7 +3,7 @@
 
 use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
-use log::{error, trace};
+use log::{error, warn};
 use serenity::{
     all::Interaction,
     futures::{stream::FuturesUnordered, StreamExt},
@@ -208,12 +208,14 @@ impl<T: Send + Sync + 'static + Clone + TypeMapKey<Value = T>> DiscordBot<T> {
                                     error!("failed to send interaction to guild handler {}", e);
                                 }
                             },
-                            DiscordEvent::Message(msg) => {
-                                if msg.is_private() {
-                                    trace!("skipped handling private message");
-                                    continue;
-                                }
-                                let guild_id = msg.guild_id.unwrap().0.into();
+                            DiscordEvent::Message(message) => {
+                                let guild_id: u64 = match message.guild_id {
+                                    Some(g_id) => g_id.into(),
+                                    None => {
+                                        warn!("got message without guild id");
+                                        continue;
+                                    }
+                                };
 
                                 let g_h = match guild_handlers.get(&guild_id) {
                                     Some(s) => s.internal_tx.clone(),
@@ -223,7 +225,7 @@ impl<T: Send + Sync + 'static + Clone + TypeMapKey<Value = T>> DiscordBot<T> {
                                     }
                                 };
 
-                                if let Err(e) = g_h.send(DiscordEvent::Message(msg)) {
+                                if let Err(e) = g_h.send(DiscordEvent::Message(message)) {
                                     error!("failed to send message to guild handler {}", e);
                                 }
                             }
