@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use log::{debug, error};
 use reqwest::Client;
 use serde::Deserialize;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -154,8 +155,15 @@ impl GoogleMapsApi {
             // check if we are rate limited
             if response.status() == 403 {
                 self.timeout = Some(Instant::now() + std::time::Duration::from_secs(60 * 60));
+                debug!("API limit reached");
                 return Err(GoogleMapError::APILimitReached);
             }
+
+            error!(
+                "Google Maps API returned error: {}\nbody:{}",
+                response.status(),
+                response.text().await.unwrap()
+            );
 
             return Err(GoogleMapError::NetworkError);
         }

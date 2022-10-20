@@ -20,7 +20,10 @@ use tokio::{
 
 use super::manager::{DiscordEvent, InternalSender};
 use crate::{
-    discord_bot::commands::{application_command, autocomplete, command},
+    discord_bot::{
+        commands::{application_command, autocomplete, command},
+        messages::non_command_message,
+    },
     state::AppState,
 };
 
@@ -93,7 +96,10 @@ async fn handle_admin_interaction(interaction: Interaction, context: Context, ap
 }
 
 async fn handle_sent_message(message: Message, context: Context, app_state: AppState) {
-    todo!() //TODO
+    trace!("Received message: {:?}", message);
+    non_command_message(&message, &app_state, &context)
+        .await
+        .unwrap();
 }
 
 /// a handler which manages a guild, interacting with and responding to all events as required

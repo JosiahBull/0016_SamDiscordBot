@@ -1,9 +1,18 @@
 version: '3.3'
 
 services:
+  geckodriver:
+    image: instrumentisto/geckodriver:latest
+    container_name: geckodriver
+    restart: always
+
   tombot:
     build: .
+    depends_on:
+      - geckodriver
     container_name: tombot
     restart: always
     environment:
       - DISCORD_TOKEN
+      - GOOGLE_MAPS_TOKEN
+      - GECKO_DRIVER=http://geckodriver:4444/

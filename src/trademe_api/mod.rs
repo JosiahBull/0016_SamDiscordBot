@@ -1,24 +1,19 @@
-use std::time::Instant;
-
-use reqwest::Client;
+use fantoccini::{Client, ClientBuilder};
 use serde::Deserialize;
+use serde_json::json;
 use tokio::sync::mpsc::{Receiver, Sender};
-
-const API_URL: &str = "";
 
 pub type TrademeApiResponse = Result<TrademeApiData, TrademeError>;
 
 #[derive(Debug)]
 pub enum TrademeError {
     NetworkError,
-    APILimitReached,
     InvalidAddress,
 }
 
 impl std::fmt::Display for TrademeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::APILimitReached => write!(f, "API limit reached"),
             Self::InvalidAddress => write!(f, "Invalid address"),
             Self::NetworkError => write!(f, "Network error"),
         }
@@ -29,33 +24,48 @@ impl std::error::Error for TrademeError {}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct TrademeApiData {
-    category: Option<String>,
-    title: Option<String>,
-    subtitle: Option<String>,
-    description: Option<Vec<String>>,
-    start_price: u64,
-    reserve_price: u64,
-    buy_now_price: u64,
-    // duration:
+    pub address: String,
+    pub price: u64,
 }
 
+#[derive(Debug)]
 struct TrademeApiRequest {
-    listing_id: u64,
+    listing_url: String,
     sender: tokio::sync::oneshot::Sender<TrademeApiResponse>,
 }
 
 #[derive(Debug)]
-pub struct TrademeApiBuilder {}
+pub struct TrademeApiBuilder {
+    gecko_driver_url: Option<String>,
+}
 
 impl TrademeApiBuilder {
-    pub fn build(self) -> TrademeApi {
+    pub fn gecko_driver_url(mut self, url: String) -> Self {
+        self.gecko_driver_url = Some(url);
+        self
+    }
+
+    pub async fn build(self) -> TrademeApi {
         let (tx, rx) = tokio::sync::mpsc::channel(100);
 
+        // use fantoccini to get the listing details
+        let mut caps = serde_json::Map::new();
+        caps.insert("browserName".to_string(), "firefox".into());
+        caps.insert(
+            "moz:firefoxOptions".to_string(),
+            json!({"args": ["-headless"], "prefs": {"permissions.default.image": 2}}),
+        );
+
+        let client = ClientBuilder::native()
+            .capabilities(caps)
+            .connect(&self.gecko_driver_url.unwrap())
+            .await
+            .expect("failed to build `ClientBuilder`");
+
         TrademeApi {
-            client: Client::new(),
+            client,
             internal_receiver: rx,
             internal_sender: tx,
-            timeout: None,
         }
     }
 }
@@ -65,17 +75,73 @@ pub struct TrademeApi {
     client: Client,
     internal_receiver: Receiver<TrademeApiRequest>,
     internal_sender: Sender<TrademeApiRequest>,
-    timeout: Option<Instant>,
 }
 
 impl TrademeApi {
     pub fn builder() -> TrademeApiBuilder {
-        TrademeApiBuilder {}
+        TrademeApiBuilder {
+            gecko_driver_url: None,
+        }
     }
 
-    async fn get_listing_details(&mut self, listing_id: u64) -> TrademeApiResponse {}
+    async fn get_listing_details(&mut self, listing_url: String) -> TrademeApiResponse {
+        if let Err(e) = self.client.goto(&listing_url).await {
+            eprintln!("goto() error. {:?}", e);
+            return Err(TrademeError::NetworkError);
+        }
 
-    pub async fn run(&mut self) {}
+        // load .tm-property-listing-body__location as address
+        let address = self
+            .client
+            .find(fantoccini::Locator::Css(
+                ".tm-property-listing-body__location",
+            ))
+            .await
+            .map_err(|e| {
+                eprintln!("Error finding address: {:?}", e);
+                TrademeError::InvalidAddress
+            })?
+            .text()
+            .await
+            .map_err(|e| {
+                eprintln!("Error extracting address: {:?}", e);
+                TrademeError::InvalidAddress
+            })?;
+
+        // load .tm-property-listing-body__price > strong:nth-child(1) as the price
+        let price = self
+            .client
+            .find(fantoccini::Locator::Css(
+                ".tm-property-listing-body__price > strong:nth-child(1)",
+            ))
+            .await
+            .map_err(|e| {
+                eprintln!("Error finding price: {:?}", e);
+                TrademeError::InvalidAddress
+            })?
+            .text()
+            .await
+            .map_err(|e| {
+                eprintln!("Error extracting price: {:?}", e);
+                TrademeError::InvalidAddress
+            })?
+            .replace('$', "")
+            .replace(" per week", "")
+            .parse::<u64>()
+            .map_err(|e| {
+                eprintln!("Error parsing price: {:?}", e);
+                TrademeError::InvalidAddress
+            })?;
+
+        Ok(TrademeApiData { address, price })
+    }
+
+    pub async fn run(&mut self) {
+        while let Some(request) = self.internal_receiver.recv().await {
+            let response = self.get_listing_details(request.listing_url).await;
+            request.sender.send(response).unwrap();
+        }
+    }
 
     pub fn handle(&self) -> TrademeApiHandle {
         TrademeApiHandle {
@@ -84,6 +150,7 @@ impl TrademeApi {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct TrademeApiHandle {
     internal_sender: Sender<TrademeApiRequest>,
 }
@@ -91,9 +158,15 @@ pub struct TrademeApiHandle {
 impl TrademeApiHandle {
     pub async fn add_to_queue(
         &self,
-        listing_id: u64,
+        listing_url: String,
         return_channel: tokio::sync::oneshot::Sender<TrademeApiResponse>,
     ) {
-        self.internal_sender.send()
+        self.internal_sender
+            .send(TrademeApiRequest {
+                listing_url,
+                sender: return_channel,
+            })
+            .await
+            .unwrap();
     }
 }
