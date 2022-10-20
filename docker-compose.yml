@@ -2,9 +2,11 @@ version: '3.3'
 
 services:
   geckodriver:
-    image: instrumentisto/geckodriver:latest
+    build: ./gecko
     container_name: geckodriver
     restart: always
+    ports:
+      - 127.0.0.1:4444:4444
 
   tombot:
     build: .
