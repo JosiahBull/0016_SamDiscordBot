@@ -3,10 +3,10 @@
 
 use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
-use log::error;
+use log::{error, trace};
 use serenity::{
     futures::{stream::FuturesUnordered, StreamExt},
-    model::prelude::interaction::Interaction,
+    model::prelude::{interaction::Interaction, Message},
     prelude::{GatewayIntents, TypeMapKey},
     Client,
 };
@@ -27,6 +27,8 @@ pub enum DiscordEvent {
     /// an interaction has been received from the user, and must be handled by a specific guild
     // enum variant boxed, as is quite large and so should be heap-allocated
     Interaction(Box<Interaction>),
+    /// a new message received from any guild
+    Message(Box<Message>),
     /// a shutdown command to be sent to a guild, when received the guild should cease all activity and shut down
     Shutdown,
 }
@@ -205,6 +207,25 @@ impl<T: Send + Sync + 'static + Clone + TypeMapKey<Value = T>> DiscordBot<T> {
                                     error!("failed to send interaction to guild handler {}", e);
                                 }
                             },
+                            DiscordEvent::Message(msg) => {
+                                if msg.is_private() {
+                                    trace!("skipped handling private message");
+                                    continue;
+                                }
+                                let guild_id = msg.guild_id.unwrap().0;
+
+                                let g_h = match guild_handlers.get(&guild_id) {
+                                    Some(s) => s.internal_tx.clone(),
+                                    None => {
+                                        error!("tried to handle message for non-existant guild id {}", guild_id);
+                                        return;
+                                    }
+                                };
+
+                                if let Err(e) = g_h.send(DiscordEvent::Message(msg)) {
+                                    error!("failed to send message to guild handler {}", e);
+                                }
+                            }
                             e => error!("unexpected discord event received {:?}", e),
                         }
                     },
