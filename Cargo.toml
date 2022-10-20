@@ -8,6 +8,7 @@ authors = ["Josiah Bull <josiah.bull7@gmail.com>"]
 chrono = "0.4.22"
 log = "0.4.17"
 fern = "0.6.1"
+rand = "0.8.5"
 
 dotenv = "0.15.0"
 

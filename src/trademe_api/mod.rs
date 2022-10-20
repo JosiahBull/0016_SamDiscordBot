@@ -58,7 +58,7 @@ impl TrademeApiBuilder {
 
         let client = ClientBuilder::native()
             .capabilities(caps)
-            .connect(&self.gecko_driver_url.unwrap())
+            .connect(self.gecko_driver_url.as_ref().unwrap())
             .await
             .expect("failed to build `ClientBuilder`");
 

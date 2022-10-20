@@ -143,12 +143,10 @@ impl GoogleMapsApi {
             url
         };
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|_| GoogleMapError::NetworkError)?;
+        let response = self.client.get(&url).send().await.map_err(|e| {
+            error!("Failed to make request to google map api: {}", e);
+            GoogleMapError::NetworkError
+        })?;
 
         // validate status
         if !response.status().is_success() {
@@ -168,10 +166,13 @@ impl GoogleMapsApi {
             return Err(GoogleMapError::NetworkError);
         }
 
-        let data: GoogleMapsData = response
-            .json()
-            .await
-            .map_err(|_| GoogleMapError::InvalidAddress)?;
+        let data: GoogleMapsData = response.json().await.map_err(|e| {
+            error!(
+                "Failed to make request to google map api due to parsing error: {}",
+                e,
+            );
+            GoogleMapError::InvalidAddress
+        })?;
 
         Ok(data)
     }

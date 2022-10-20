@@ -19,4 +19,8 @@ WORKDIR /app
 COPY --from=builder /app/target/release/tom_bot /app/
 COPY --from=builder /app/assets/* /assets/
 
+RUN apt-get update
+RUN apt-get install ca-certificates -y
+RUN apt-get clean
+
 CMD [ "/app/tom_bot" ]

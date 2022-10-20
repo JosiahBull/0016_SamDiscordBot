@@ -1329,6 +1329,7 @@ dependencies = [
  "fantoccini",
  "fern",
  "log",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",
