@@ -2,6 +2,7 @@
 //! The bot is built on top of the Serenity discord crate.
 
 mod commands;
+mod common;
 mod guilds;
 mod handler;
 mod manager;

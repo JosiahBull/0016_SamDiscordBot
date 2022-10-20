@@ -11,7 +11,7 @@ use std::process::exit;
 
 use crate::{
     discord_bot::DiscordBot, google_api::maps::GoogleMapsApi, logging::configure_logger,
-    state::AppState,
+    state::AppState, trademe_api::TrademeApi,
 };
 
 #[tokio::main]
@@ -23,6 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let discord_token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
     let google_maps_token =
         std::env::var("GOOGLE_MAPS_TOKEN").expect("GOOGLE_MAPS_TOKEN must be set");
+    let geckodriver_url = std::env::var("GECKO_DRIVER").expect("GECKO_DRIVER must be set");
 
     let state = AppState::new();
 
@@ -39,7 +40,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("spawning trademe handler");
     let mut tradme_state = state.clone();
     let trademe_handler = tokio::spawn(async move {
-        let mut trademe_handler = Trademe::builder().build();
+        let mut trademe_handler = TrademeApi::builder()
+            .gecko_driver_url(geckodriver_url)
+            .build()
+            .await;
         tradme_state.set_tradme_api(trademe_handler.handle());
 
         trademe_handler.run().await;
@@ -87,6 +91,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             _ = google_maps_handler => {
                 info!("google maps handler shut down");
+                break;
+            }
+
+            _ = trademe_handler => {
+                info!("trademe handler shut down");
                 break;
             }
         }
