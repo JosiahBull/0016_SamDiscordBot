@@ -10,7 +10,10 @@ use crate::discord_bot::common::distance::load_maps_data_to_embed;
 
 use super::MessageReactor;
 
-const TRADME_LINK_STATE: &str = "https://www.trademe.co.nz/a/property/residential/";
+const TRADME_LINK_STATE: &[&str] = &[
+    "https://www.trademe.co.nz/a/property/residential/",
+    "https://www.trademe.co.nz/property/residential-property-to-rent/",
+];
 
 pub struct TrademeDistance;
 
@@ -32,7 +35,9 @@ impl<'a> MessageReactor<'a> for TrademeDistance {
     }
 
     fn precheck(message: &Message) -> bool {
-        message.content.starts_with(TRADME_LINK_STATE)
+        TRADME_LINK_STATE
+            .iter()
+            .any(|link| message.content.contains(link))
     }
 
     async fn process(
@@ -42,14 +47,15 @@ impl<'a> MessageReactor<'a> for TrademeDistance {
         ctx: &serenity::prelude::Context,
     ) {
         let content = &message.content;
-        if content.contains(TRADME_LINK_STATE) {
+        if TRADME_LINK_STATE.iter().any(|link| content.contains(link)) {
             let channel_id = message.channel_id;
 
             // try to parse out the full link if possible
-            let links = message
-                .content
-                .split(' ')
-                .find(|p| p.contains(TRADME_LINK_STATE));
+            let links = content.split_whitespace().find(|link| {
+                TRADME_LINK_STATE
+                    .iter()
+                    .any(|link_state| link.contains(link_state))
+            });
 
             if links.is_none() {
                 trace!("stopped trying to parse trademe link - as we were unable to find it");
