@@ -57,6 +57,15 @@ pub trait AutocompleteCommand<'a>: Command<'a> {
     ) -> Result<CreateAutocompleteResponse, CommandResponse<'c>>;
 }
 
+// #[async_trait]
+// pub trait PaginatedResponse<'a>: Command<'a> {
+//     /// Get the number of pages this response has
+//     fn get_page_count(&self) -> usize;
+
+//     /// Get a specific page of this response
+//     fn get_page(&self, page: usize) -> CommandResponse<'a>;
+// }
+
 /// match against a list of provided command types, and generate an application command that can be registered with discord
 macro_rules! application_command {
     ( $base:expr, $( $x:ty ),* $(,)? ) => {
