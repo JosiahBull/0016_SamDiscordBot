@@ -37,17 +37,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         google_maps_handler.run().await;
     });
 
-    info!("spawning trademe handler");
-    let mut tradme_state = state.clone();
-    let trademe_handler = tokio::spawn(async move {
-        let mut trademe_handler = TrademeApi::builder()
-            .gecko_driver_url(geckodriver_url)
-            .build()
-            .await;
-        tradme_state.set_tradme_api(trademe_handler.handle());
+    // info!("spawning trademe handler");
+    // let mut tradme_state = state.clone();
+    // let trademe_handler = tokio::spawn(async move {
+    //     let mut trademe_handler = TrademeApi::builder()
+    //         .gecko_driver_url(geckodriver_url)
+    //         .build()
+    //         .await;
+    //     tradme_state.set_tradme_api(trademe_handler.handle());
 
-        trademe_handler.run().await;
-    });
+    //     trademe_handler.run().await;
+    // });
 
     info!("spawning discord handler");
     let discord_state = state.clone();
@@ -94,10 +94,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 break;
             }
 
-            _ = trademe_handler => {
-                info!("trademe handler shut down");
-                break;
-            }
+            // _ = trademe_handler => {
+            //     info!("trademe handler shut down");
+            //     break;
+            // }
         }
     }
 

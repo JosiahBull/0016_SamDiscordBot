@@ -3,6 +3,7 @@ mod util;
 
 mod distance;
 mod hide;
+mod pay;
 mod ping;
 mod say;
 
