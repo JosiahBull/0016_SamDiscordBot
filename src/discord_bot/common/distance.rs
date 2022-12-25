@@ -1,6 +1,9 @@
 use serenity::builder::CreateEmbed;
 
-use crate::{google_api::maps::GoogleMapsData, state::AppState};
+use crate::{
+    google_api::maps::GoogleMapsData,
+    state::{AppState, PHRASES},
+};
 
 pub const DESTINATIONS: &[[&str; 2]] = &[
     ["UoA", "University of Auckland"],

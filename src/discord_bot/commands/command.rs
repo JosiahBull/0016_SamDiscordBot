@@ -7,6 +7,7 @@ use serenity::{
             interaction::{
                 application_command::ApplicationCommandInteraction,
                 autocomplete::AutocompleteInteraction,
+                message_component::MessageComponentInteraction,
             },
         },
         Permissions,
@@ -56,6 +57,24 @@ pub trait AutocompleteCommand<'a>: Command<'a> {
         app_state: &'c AppState,
         context: &'c Context,
     ) -> Result<CreateAutocompleteResponse, CommandResponse<'c>>;
+}
+
+/// A command with a followup interaction component which must be handled
+#[async_trait]
+pub trait InteractionCommand<'a>: Command<'a> {
+    /// validate if this message is related to a given command
+    fn answerable<'b>(
+        interaction: &'b MessageComponentInteraction,
+        app_state: &'b AppState,
+        context: &'b Context,
+    ) -> bool;
+
+    /// handle the generated interaction for this command
+    async fn interaction<'b>(
+        interaction: &'b MessageComponentInteraction,
+        app_state: &'b AppState,
+        context: &'b Context,
+    ) -> Result<CommandResponse<'b>, CommandResponse<'b>>;
 }
 
 // #[async_trait]
@@ -126,6 +145,23 @@ macro_rules! autocomplete {
     };
 }
 
+/// match against a list of provided interaction command types, and produce a response which can be sent to the user
+macro_rules! interaction {
+    ( $cmd:expr, $state:expr, $context:expr, $( $x:ty ),* $(,)? ) => {
+        {
+            /// ensures that the provided type has relevant traits
+            fn assert_interaction<'a, T: InteractionCommand<'a, Error=String>>() {}
+            $(
+                assert_interaction::<$x>();
+                if <$x>::answerable($cmd, $state, $context) {
+                    return <$x>::interaction($cmd, $state, $context).await
+                }
+            )*
+            Err(CommandResponse::InternalFailure(String::from("Unsupported Command")))
+        }
+    };
+}
+
 pub fn application_command() -> CreateApplicationCommands {
     let mut base = CreateApplicationCommands::default();
     application_command!(
@@ -156,11 +192,18 @@ pub async fn command<'a>(
     )
 }
 
-#[allow(dead_code, unused_variables)]
 pub async fn autocomplete<'a>(
     command: &'a AutocompleteInteraction,
     app_state: &'a AppState,
     context: &'a Context,
 ) -> Result<CreateAutocompleteResponse, CommandResponse<'a>> {
     autocomplete!(command, app_state, context,)
+}
+
+pub async fn interaction<'a>(
+    command: &'a MessageComponentInteraction,
+    app_state: &'a AppState,
+    context: &'a Context,
+) -> Result<CommandResponse<'a>, CommandResponse<'a>> {
+    interaction!(command, app_state, context, PayCommand)
 }
