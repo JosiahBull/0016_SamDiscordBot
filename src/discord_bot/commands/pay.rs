@@ -1,11 +1,13 @@
+use log::error;
 use serenity::{
     async_trait,
-    builder::{CreateApplicationCommand, CreateInteractionResponse},
+    builder::{CreateApplicationCommand, CreateEmbed, CreateInteractionResponse},
     model::prelude::{
         command::CommandOptionType,
         component::ButtonStyle,
         interaction::{
             application_command::{ApplicationCommandInteraction, CommandDataOptionValue},
+            message_component::MessageComponentInteraction,
             InteractionResponseType,
         },
         Attachment, AttachmentType,
@@ -13,11 +15,12 @@ use serenity::{
     prelude::Context,
 };
 
-use crate::state::AppState;
+use crate::state::{AppState, FLATMATE_NAMES};
 
-use super::{command::Command, util::CommandResponse};
-
-const FLATMATE_NAMES: [&str; 4] = ["jo", "bex", "sam", "william"];
+use super::{
+    command::{Command, InteractionCommand},
+    util::CommandResponse,
+};
 
 pub struct PayCommand {}
 
@@ -128,44 +131,105 @@ impl<'a> Command<'a> for PayCommand {
             }
         };
 
+        if let Err(e) = interaction
+            .create_interaction_response(&ctx, |f| {
+                f.kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|f| {
+                        f.embed(|e| {
+                            e.title("Bill created")
+                                .description(format!("Bill for {} created", purpose))
+                                .color(0xFF0000);
+
+                            for (name, value) in amount.iter() {
+                                e.field(
+                                    format!(
+                                        "Amount for {}{} to pay:",
+                                        name[0..1].to_uppercase(),
+                                        &name[1..]
+                                    ),
+                                    value,
+                                    false,
+                                );
+                            }
+                            e
+                        })
+                        .add_file(AttachmentType::Image(receipt_url))
+                        .custom_id("pay")
+                        .components(|f| {
+                            f.create_action_row(|f| {
+                                f.create_button(|f| {
+                                    f.label("Paid!")
+                                        .style(ButtonStyle::Success)
+                                        .custom_id("paid")
+                                })
+                                .create_button(|f| {
+                                    f.label("Receipt")
+                                        .style(ButtonStyle::Link)
+                                        .url(&receipt.url)
+                                })
+                            })
+                        })
+                    })
+            })
+            .await
+        {
+            return Err(CommandResponse::BasicFailure(format!(
+                "Failed to create interaction response: {}",
+                e
+            )));
+        }
+
+        Ok(CommandResponse::NoResponse)
+    }
+}
+
+#[async_trait]
+impl<'a> InteractionCommand<'a> for PayCommand {
+    fn answerable<'b>(
+        interaction: &'b MessageComponentInteraction,
+        app_state: &'b AppState,
+        context: &'b Context,
+    ) -> bool {
+        true //TODO
+    }
+
+    async fn interaction<'b>(
+        interaction: &'b MessageComponentInteraction,
+        state: &'b AppState,
+        ctx: &'b Context,
+    ) -> Result<CommandResponse<'b>, CommandResponse<'b>> {
+        if interaction.member.is_none() {
+            return Err(CommandResponse::BasicFailure(
+                "Failed to get member".to_string(),
+            ));
+        }
+
+        let user = &interaction.user;
+        let message = &interaction.message;
+
+        if let Err(e) = interaction
+            .edit_original_interaction_response(&ctx, |f| {
+                // find username of user, edit the message so their name is in bold
+                let mut edited_embed = CreateEmbed::default();
+                for field in message.embeds[0].fields.iter() {
+                    edited_embed.field(field.name.clone(), field.value.clone(), field.inline);
+                }
+
+                f.set_embed(edited_embed)
+            })
+            .await
+        {
+            return Err(CommandResponse::BasicFailure(format!(
+                "Failed to edit interaction response: {}",
+                e
+            )));
+        }
+
         Ok(CommandResponse::ComplexSuccess(
             CreateInteractionResponse::default()
                 .kind(InteractionResponseType::ChannelMessageWithSource)
                 .interaction_response_data(|f| {
-                    f.embed(|e| {
-                        e.title("Bill created")
-                            .description(format!("Bill for {} created", purpose))
-                            .color(0xFF0000);
-
-                        for (name, value) in amount.iter() {
-                            e.field(
-                                format!(
-                                    "Amount for {}{} to pay:",
-                                    name[0..1].to_uppercase(),
-                                    &name[1..]
-                                ),
-                                value,
-                                false,
-                            );
-                        }
-                        e
-                    })
-                    .add_file(AttachmentType::Image(receipt_url))
-                    .custom_id("pay")
-                    .components(|f| {
-                        f.create_action_row(|f| {
-                            f.create_button(|f| {
-                                f.label("Paid!")
-                                    .style(ButtonStyle::Success)
-                                    .custom_id("paid")
-                            })
-                            .create_button(|f| {
-                                f.label("Receipt")
-                                    .style(ButtonStyle::Link)
-                                    .url(&receipt.url)
-                            })
-                        })
-                    })
+                    f.content(format!("{} paid!", user.name)).ephemeral(true)
                 })
                 .to_owned(),
         ))
