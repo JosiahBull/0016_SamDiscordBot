@@ -1,9 +1,7 @@
 use serenity::{
+    all::CommandInteraction,
     async_trait,
-    builder::{CreateApplicationCommand, CreateInteractionResponse},
-    model::prelude::interaction::{
-        application_command::ApplicationCommandInteraction, InteractionResponseType,
-    },
+    builder::{CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage},
     prelude::Context,
 };
 
@@ -13,9 +11,9 @@ use super::{command::Command, util::CommandResponse};
 
 pub struct HideCommand;
 
-impl<'a> TryFrom<&'a ApplicationCommandInteraction> for HideCommand {
+impl<'a> TryFrom<&'a CommandInteraction> for HideCommand {
     type Error = String;
-    fn try_from(_: &'a ApplicationCommandInteraction) -> Result<Self, Self::Error> {
+    fn try_from(_: &'a CommandInteraction) -> Result<Self, Self::Error> {
         Ok(Self)
     }
 }
@@ -30,20 +28,19 @@ impl<'a> Command<'a> for HideCommand {
         "Creates a large message to hide previous messages in the chat"
     }
 
-    fn get_application_command_options(_: &mut CreateApplicationCommand) {}
+    fn get_application_command_options(i: CreateCommand) -> CreateCommand {
+        i
+    }
 
     #[allow(clippy::invisible_characters)]
     async fn handle_application_command<'b>(
         self,
-        _: &'b ApplicationCommandInteraction,
+        _: &'b CommandInteraction,
         _: &'b AppState,
         _: &'b Context,
-    ) -> Result<CommandResponse<'b>, CommandResponse<'b>> {
+    ) -> Result<CommandResponse, CommandResponse> {
         Ok(CommandResponse::ComplexSuccess(
-            CreateInteractionResponse::default()
-            .kind(InteractionResponseType::ChannelMessageWithSource)
-            .interaction_response_data(|data| data.content("​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​​\n​​\n​​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​​\n​​\n​​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n"))
-            .to_owned()
+            CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().content("​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​​\n​​\n​​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​​\n​​\n​​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n"))
         ))
     }
 }

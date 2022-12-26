@@ -4,12 +4,11 @@ use std::{sync::Arc, time::Duration};
 
 use log::{error, info, trace, warn};
 use serenity::{
+    all::Interaction,
+    builder::{CreateAutocompleteResponse, CreateInteractionResponse},
     client::Context,
     futures::{stream::FuturesUnordered, StreamExt},
-    model::{
-        id::GuildId,
-        prelude::{interaction::Interaction, Message},
-    },
+    model::{id::GuildId, prelude::Message},
 };
 use tokio::{
     select,
@@ -31,7 +30,7 @@ use crate::{
 /// matches over the type of interaction and then handles it appropriately, generating a response that can be sent to the user
 async fn handle_slash_command(interaction: Interaction, context: Context, app_state: AppState) {
     match interaction {
-        Interaction::ApplicationCommand(raw_command) => {
+        Interaction::Command(raw_command) => {
             trace!("Received application command: {:?}", raw_command);
             let res = command(&raw_command, &app_state, &context).await;
 
@@ -40,13 +39,7 @@ async fn handle_slash_command(interaction: Interaction, context: Context, app_st
                     trace!("Sending response: {:?}", response);
 
                     if let Some(resp) = response.generate_response() {
-                        if let Err(e) = raw_command
-                            .create_interaction_response(&context, |f| {
-                                *f = resp;
-                                f
-                            })
-                            .await
-                        {
+                        if let Err(e) = raw_command.create_response(&context, resp).await {
                             error!("Unable to send response: {:?}", e);
                         }
                     }
@@ -55,20 +48,14 @@ async fn handle_slash_command(interaction: Interaction, context: Context, app_st
                     response.write_to_log();
 
                     if let Some(resp) = response.generate_response() {
-                        if let Err(e) = raw_command
-                            .create_interaction_response(&context, |f| {
-                                *f = resp;
-                                f
-                            })
-                            .await
-                        {
+                        if let Err(e) = raw_command.create_response(&context, resp).await {
                             error!("Unable to send response: {:?}", e);
                         }
                     }
                 }
             }
         }
-        Interaction::MessageComponent(component) => {
+        Interaction::Component(component) => {
             trace!("Received component interaction: {:?}", component);
             if let Err(e) = handle_interaction(&component, &app_state, &context).await {
                 error!("Unable to handle component interaction: {:?}", e);
@@ -76,21 +63,21 @@ async fn handle_slash_command(interaction: Interaction, context: Context, app_st
         }
         Interaction::Autocomplete(interaction) => {
             let res = autocomplete(&interaction, &app_state, &context).await;
+            let resp = match res {
+                Ok(r) => r,
+                Err(r) => {
+                    r.write_to_log();
+                    CreateAutocompleteResponse::default()
+                }
+            };
             if let Err(e) = interaction
-                .create_autocomplete_response(&context, |f| {
-                    match res {
-                        Ok(response) => *f = response,
-                        Err(response) => response.write_to_log(),
-                    }
-
-                    f
-                })
+                .create_response(&context, CreateInteractionResponse::Autocomplete(resp))
                 .await
             {
                 error!("Unable to send autocomplete response: {:?}", e);
             }
         }
-        Interaction::ModalSubmit(submit) => {
+        Interaction::Modal(submit) => {
             error!("Received modal submit: {:?}", submit);
         }
         // ping commands should not get here
@@ -188,10 +175,7 @@ impl GuildHandler {
             self.handle = Some(tokio::task::spawn(async move {
                 // register all commands
                 while let Err(e) = guild
-                    .set_application_commands(&context, |commands| {
-                        *commands = application_command();
-                        commands
-                    })
+                    .set_application_commands(&context, application_command())
                     .await
                 {
                     error!("failed to register commands for guild {}: {}", guild, e);

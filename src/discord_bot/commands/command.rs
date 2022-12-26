@@ -1,17 +1,8 @@
 use serenity::{
+    all::{AutocompleteOption, CommandInteraction, ComponentInteraction},
     async_trait,
-    builder::{CreateApplicationCommand, CreateApplicationCommands, CreateAutocompleteResponse},
-    model::{
-        prelude::{
-            command::CommandType,
-            interaction::{
-                application_command::ApplicationCommandInteraction,
-                autocomplete::AutocompleteInteraction,
-                message_component::MessageComponentInteraction,
-            },
-        },
-        Permissions,
-    },
+    builder::{CreateAutocompleteResponse, CreateCommand},
+    model::{application::CommandType, Permissions},
     prelude::Context,
 };
 
@@ -29,7 +20,7 @@ const DEFAULT_PERMISSIONS: Permissions = Permissions::ADMINISTRATOR;
 
 /// A command that can be used in a guild, restricted to administrators
 #[async_trait]
-pub trait Command<'a>: TryFrom<&'a ApplicationCommandInteraction> {
+pub trait Command<'a>: TryFrom<&'a CommandInteraction> {
     /// Get the name of the command
     fn name() -> &'static str;
 
@@ -37,15 +28,15 @@ pub trait Command<'a>: TryFrom<&'a ApplicationCommandInteraction> {
     fn description() -> &'static str;
 
     /// Get the discord defined usage of this command, to be sent to discord
-    fn get_application_command_options(command: &mut CreateApplicationCommand);
+    fn get_application_command_options(command: CreateCommand) -> CreateCommand;
 
     /// handle the execution of this application command
     async fn handle_application_command<'b>(
         self,
-        interaction: &'b ApplicationCommandInteraction,
+        interaction: &'b CommandInteraction,
         app_state: &'b AppState,
         context: &'b Context,
-    ) -> Result<CommandResponse<'b>, CommandResponse<'b>>;
+    ) -> Result<CommandResponse, CommandResponse>;
 }
 
 /// A command that has support for autocomplete responses
@@ -53,10 +44,10 @@ pub trait Command<'a>: TryFrom<&'a ApplicationCommandInteraction> {
 pub trait AutocompleteCommand<'a>: Command<'a> {
     /// get the autocomplete options for this command, given the current input
     async fn autocomplete<'c>(
-        message: &'c AutocompleteInteraction,
+        message: &'c AutocompleteOption,
         app_state: &'c AppState,
         context: &'c Context,
-    ) -> Result<CreateAutocompleteResponse, CommandResponse<'c>>;
+    ) -> Result<CreateAutocompleteResponse, CommandResponse>;
 }
 
 /// A command with a followup interaction component which must be handled
@@ -64,17 +55,17 @@ pub trait AutocompleteCommand<'a>: Command<'a> {
 pub trait InteractionCommand<'a>: Command<'a> {
     /// validate if this message is related to a given command
     fn answerable<'b>(
-        interaction: &'b MessageComponentInteraction,
+        interaction: &'b ComponentInteraction,
         app_state: &'b AppState,
         context: &'b Context,
     ) -> bool;
 
     /// handle the generated interaction for this command
     async fn interaction<'b>(
-        interaction: &'b MessageComponentInteraction,
+        interaction: &'b ComponentInteraction,
         app_state: &'b AppState,
         context: &'b Context,
-    ) -> Result<CommandResponse<'b>, CommandResponse<'b>>;
+    ) -> Result<CommandResponse, CommandResponse>;
 }
 
 // #[async_trait]
@@ -94,16 +85,14 @@ macro_rules! application_command {
             fn assert_command<'a, T: Command<'a, Error=String>>() {}
             $(
                 assert_command::<$x>();
-                let v_base: &mut CreateApplicationCommands = $base;
-                v_base.create_application_command(|command| {
-                    <$x>::get_application_command_options(command);
-                    command
-                        .name(<$x>::name())
-                        .description(<$x>::description())
-                        .default_member_permissions(DEFAULT_PERMISSIONS)
-                        .dm_permission(false)
-                        .kind(CommandType::ChatInput)
-                });
+                let mut v_base = <$x>::get_application_command_options(CreateCommand::new("unnamed command"));
+                v_base = v_base
+                    .name(<$x>::name())
+                    .description(<$x>::description())
+                    .default_member_permissions(DEFAULT_PERMISSIONS)
+                    .dm_permission(false)
+                    .kind(CommandType::ChatInput);
+                $base.push(v_base);
             )*
         }
     };
@@ -162,8 +151,8 @@ macro_rules! interaction {
     };
 }
 
-pub fn application_command() -> CreateApplicationCommands {
-    let mut base = CreateApplicationCommands::default();
+pub fn application_command() -> Vec<CreateCommand> {
+    let mut base = vec![];
     application_command!(
         &mut base,
         HideCommand,
@@ -176,10 +165,10 @@ pub fn application_command() -> CreateApplicationCommands {
 }
 
 pub async fn command<'a>(
-    command: &'a ApplicationCommandInteraction,
+    command: &'a CommandInteraction,
     app_state: &'a AppState,
     context: &'a Context,
-) -> Result<CommandResponse<'a>, CommandResponse<'a>> {
+) -> Result<CommandResponse, CommandResponse> {
     command!(
         command,
         app_state,
@@ -192,18 +181,19 @@ pub async fn command<'a>(
     )
 }
 
+#[allow(dead_code, unused_variables)]
 pub async fn autocomplete<'a>(
-    command: &'a AutocompleteInteraction,
+    command: &'a CommandInteraction,
     app_state: &'a AppState,
     context: &'a Context,
-) -> Result<CreateAutocompleteResponse, CommandResponse<'a>> {
+) -> Result<CreateAutocompleteResponse, CommandResponse> {
     autocomplete!(command, app_state, context,)
 }
 
 pub async fn interaction<'a>(
-    command: &'a MessageComponentInteraction,
+    command: &'a ComponentInteraction,
     app_state: &'a AppState,
     context: &'a Context,
-) -> Result<CommandResponse<'a>, CommandResponse<'a>> {
+) -> Result<CommandResponse, CommandResponse> {
     interaction!(command, app_state, context, PayCommand)
 }

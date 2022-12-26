@@ -1,9 +1,7 @@
 use serenity::{
+    all::CommandInteraction,
     async_trait,
-    builder::{CreateApplicationCommand, CreateInteractionResponse},
-    model::prelude::interaction::{
-        application_command::ApplicationCommandInteraction, InteractionResponseType,
-    },
+    builder::{CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage},
     prelude::Context,
 };
 
@@ -13,9 +11,9 @@ use super::{command::Command, util::CommandResponse};
 
 pub struct PingCommand;
 
-impl<'a> TryFrom<&'a ApplicationCommandInteraction> for PingCommand {
+impl<'a> TryFrom<&'a CommandInteraction> for PingCommand {
     type Error = String;
-    fn try_from(_: &'a ApplicationCommandInteraction) -> Result<Self, Self::Error> {
+    fn try_from(_: &'a CommandInteraction) -> Result<Self, Self::Error> {
         Ok(Self)
     }
 }
@@ -30,19 +28,22 @@ impl<'a> Command<'a> for PingCommand {
         "Pings the bot, expect a pong response."
     }
 
-    fn get_application_command_options(_: &mut CreateApplicationCommand) {}
+    fn get_application_command_options(i: CreateCommand) -> CreateCommand {
+        i
+    }
 
     async fn handle_application_command<'b>(
         self,
-        _: &'b ApplicationCommandInteraction,
+        _: &'b CommandInteraction,
         _: &'b AppState,
         _: &'b Context,
-    ) -> Result<CommandResponse<'b>, CommandResponse<'b>> {
+    ) -> Result<CommandResponse, CommandResponse> {
         Ok(CommandResponse::ComplexSuccess(
-            CreateInteractionResponse::default()
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|data| data.content("Pong!").ephemeral(true))
-                .to_owned(),
+            CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::new()
+                    .content("Pong!")
+                    .ephemeral(true),
+            ),
         ))
     }
 }

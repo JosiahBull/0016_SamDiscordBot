@@ -1,11 +1,9 @@
 use serenity::{
+    all::{CommandInteraction, CommandOptionType},
     async_trait,
-    builder::{CreateApplicationCommand, CreateInteractionResponse},
-    model::prelude::{
-        command::CommandOptionType,
-        interaction::{
-            application_command::ApplicationCommandInteraction, InteractionResponseType,
-        },
+    builder::{
+        CreateCommand, CreateCommandOption, CreateInteractionResponse,
+        CreateInteractionResponseMessage, CreateMessage,
     },
     prelude::Context,
 };
@@ -21,17 +19,15 @@ pub struct SayCommand<'a> {
     message: &'a str,
 }
 
-impl<'a> TryFrom<&'a ApplicationCommandInteraction> for SayCommand<'a> {
+impl<'a> TryFrom<&'a CommandInteraction> for SayCommand<'a> {
     type Error = String;
-    fn try_from(interaction: &'a ApplicationCommandInteraction) -> Result<Self, Self::Error> {
+    fn try_from(interaction: &'a CommandInteraction) -> Result<Self, Self::Error> {
         let message = interaction
             .data
             .options
             .get(0)
             .ok_or("No message provided")?
             .value
-            .as_ref()
-            .ok_or("No message provided")?
             .as_str()
             .ok_or("No message provided")?;
         Ok(Self { message })
@@ -48,25 +44,28 @@ impl<'a> Command<'a> for SayCommand<'a> {
         "Says whatever you want!"
     }
 
-    fn get_application_command_options(i: &mut CreateApplicationCommand) {
-        i.create_option(|o| {
-            o.name("text")
-                .description("What you want the bot to say")
-                .required(true)
-                .kind(CommandOptionType::String)
-                .max_length(1900)
-        });
+    fn get_application_command_options(i: CreateCommand) -> CreateCommand {
+        i.add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "text",
+                "What you want the bot to say",
+            )
+            .required(true)
+            .max_length(1900)
+            .to_owned(),
+        )
     }
 
     async fn handle_application_command<'b>(
         self,
-        interaction: &'b ApplicationCommandInteraction,
+        interaction: &'b CommandInteraction,
         _: &'b AppState,
         ctx: &'b Context,
-    ) -> Result<CommandResponse<'b>, CommandResponse<'b>> {
+    ) -> Result<CommandResponse, CommandResponse> {
         if let Err(e) = interaction
             .channel_id
-            .send_message(ctx, |m| m.content(self.message))
+            .send_message(ctx, CreateMessage::new().content(self.message))
             .await
         {
             return Err(CommandResponse::ComplexFailure {
@@ -77,13 +76,11 @@ impl<'a> Command<'a> for SayCommand<'a> {
         }
 
         Ok(CommandResponse::ComplexSuccess(
-            CreateInteractionResponse::default()
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                .interaction_response_data(|data| {
-                    data.content(format!("I will send: {}", self.message))
-                        .ephemeral(true)
-                })
-                .to_owned(),
+            CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::new()
+                    .content(format!("I will send: {}", self.message))
+                    .ephemeral(true),
+            ),
         ))
     }
 }

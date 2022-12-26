@@ -1,4 +1,4 @@
-use serenity::builder::CreateEmbed;
+use serenity::builder::{CreateEmbed, CreateEmbedFooter};
 
 use crate::{
     google_api::maps::GoogleMapsData,
@@ -35,19 +35,19 @@ pub async fn load_maps_data_to_embed(
     let data: GoogleMapsData =
         tokio::time::timeout(std::time::Duration::from_secs(20), rx).await???;
 
-    let mut embed = CreateEmbed::default();
+    let embed = CreateEmbed::default();
 
-    let embed = embed
+    let mut embed = embed
         .title(&data.origin_addresses[0])
-        .footer(|f| {
-            f.text("Powered by Google Maps")
-                .icon_url("https://cdn.iconscout.com/icon/free/png-256/google-map-461800.png")
-        })
+        .footer(
+            CreateEmbedFooter::new(PHRASES[rand::random::<usize>() % PHRASES.len()])
+                .icon_url("https://cdn.iconscout.com/icon/free/png-256/google-map-461800.png"),
+        )
         .color(0x4285F4);
 
     for row in data.rows.iter() {
         for (i, element) in row.elements.iter().enumerate() {
-            embed.field(
+            embed = embed.field(
                 DESTINATIONS[i][0],
                 format!("{} ({})", element.distance.text, element.duration.text),
                 true,
@@ -55,5 +55,5 @@ pub async fn load_maps_data_to_embed(
         }
     }
 
-    Ok(embed.to_owned())
+    Ok(embed)
 }

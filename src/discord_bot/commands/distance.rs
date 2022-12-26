@@ -1,12 +1,10 @@
 use log::error;
 use serenity::{
+    all::{CommandInteraction, CommandOptionType},
     async_trait,
-    builder::CreateApplicationCommand,
-    model::prelude::{
-        command::CommandOptionType,
-        interaction::{
-            application_command::ApplicationCommandInteraction, InteractionResponseType,
-        },
+    builder::{
+        CreateCommand, CreateCommandOption, CreateInteractionResponse,
+        CreateInteractionResponseMessage, EditInteractionResponse,
     },
     prelude::Context,
 };
@@ -20,9 +18,9 @@ use super::{
 
 pub struct DistanceCommand;
 
-impl<'a> TryFrom<&'a ApplicationCommandInteraction> for DistanceCommand {
+impl<'a> TryFrom<&'a CommandInteraction> for DistanceCommand {
     type Error = String;
-    fn try_from(_: &'a ApplicationCommandInteraction) -> Result<Self, Self::Error> {
+    fn try_from(_: &'a CommandInteraction) -> Result<Self, Self::Error> {
         Ok(Self)
     }
 }
@@ -37,27 +35,31 @@ impl<'a> Command<'a> for DistanceCommand {
         "calculate distances from here to ma***REMOVED***r locations, in minutes - utilises the google maps api"
     }
 
-    fn get_application_command_options(i: &mut CreateApplicationCommand) {
-        i.create_option(|o| {
-            o.name("address")
-                .description("The address to show locations for")
-                .required(true)
-                .kind(CommandOptionType::String)
-                .max_length(200)
-        });
+    fn get_application_command_options(i: CreateCommand) -> CreateCommand {
+        i.add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "address",
+                "The address to show locations for",
+            )
+            .required(true)
+            .max_length(200)
+            .to_owned(),
+        )
     }
 
     async fn handle_application_command<'b>(
         self,
-        interaction: &'b ApplicationCommandInteraction,
+        interaction: &'b CommandInteraction,
         state: &'b AppState,
         ctx: &'b Context,
-    ) -> Result<CommandResponse<'b>, CommandResponse<'b>> {
+    ) -> Result<CommandResponse, CommandResponse> {
         // create an "in progress" response
         interaction
-            .create_interaction_response(&ctx, |f| {
-                f.kind(InteractionResponseType::DeferredChannelMessageWithSource)
-            })
+            .create_response(
+                &ctx,
+                CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()),
+            )
             .await
             .map_err(|e| CommandResponse::ComplexFailure {
                 response: String::from("Failed to create interaction response"),
@@ -67,8 +69,8 @@ impl<'a> Command<'a> for DistanceCommand {
 
         // parse the address
         let address = interaction.data.options.get(0).unwrap(); //shouldn't be possible to send without this parameter being set as its required
-        let address = address.value.as_ref();
-        let address: String = address.unwrap().as_str().unwrap().to_string();
+        let address = &address.value;
+        let address: String = address.as_str().unwrap().to_string();
 
         let data = load_maps_data_to_embed(address.clone(), state).await;
         if let Err(e) = data {
@@ -77,9 +79,11 @@ impl<'a> Command<'a> for DistanceCommand {
                 address, e
             );
             interaction
-                .edit_original_interaction_response(&ctx, |f| {
-                    f.content("Google API returned error, it has been logged.")
-                })
+                .edit_response(
+                    &ctx,
+                    EditInteractionResponse::new()
+                        .content("Google API returned error, it has been logged."),
+                )
                 .await
                 .unwrap();
 
@@ -88,11 +92,7 @@ impl<'a> Command<'a> for DistanceCommand {
         let data = data.unwrap();
 
         if let Err(e) = interaction
-            .edit_original_interaction_response(&ctx, |f| {
-                f.content("");
-                f.set_embed(data);
-                f
-            })
+            .edit_response(&ctx, EditInteractionResponse::new().embed(data).content(""))
             .await
         {
             error!("Failed to return embed: {}", e);

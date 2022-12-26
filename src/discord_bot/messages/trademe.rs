@@ -3,6 +3,7 @@ use std::time::Duration;
 use log::{error, trace};
 use serenity::{
     async_trait,
+    builder::{CreateMessage, CreateThread},
     model::prelude::{ChannelType, Message},
 };
 
@@ -108,12 +109,15 @@ impl<'a> MessageReactor<'a> for TrademeDistance {
             };
 
             let new_channel = match channel_id
-                .create_public_thread(ctx, message.id, |f| {
-                    f.kind(ChannelType::PublicThread).name(format!(
+                .create_public_thread(
+                    ctx,
+                    message.id,
+                    CreateThread::new(format!(
                         "${}pw - {}",
                         &trademe_data.price, &trademe_data.address
                     ))
-                })
+                    .kind(ChannelType::PublicThread),
+                )
                 .await
             {
                 Ok(c) => c,
@@ -123,7 +127,9 @@ impl<'a> MessageReactor<'a> for TrademeDistance {
                 }
             };
 
-            let msg = new_channel.send_message(&ctx, |m| m.set_embed(embed)).await;
+            let msg = new_channel
+                .send_message(&ctx, CreateMessage::new().embed(embed))
+                .await;
 
             if let Err(e) = msg {
                 error!(

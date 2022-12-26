@@ -4,7 +4,29 @@ use serenity::prelude::TypeMapKey;
 
 use crate::{google_api::maps::GoogleMapsApiHandle, trademe_api::TrademeApiHandle};
 
-pub const FLATMATE_NAMES: [&str; 4] = ["***REMOVED***", "***REMOVED***", "***REMOVED***", "***REMOVED***"];
+pub struct Flatemate<'a> {
+    pub discord_id: u64,
+    pub name: &'a str,
+}
+
+pub static FLATMATES: &[Flatemate<'static>] = &[
+    Flatemate {
+        discord_id: ***REMOVED***,
+        name: "***REMOVED***",
+    },
+    Flatemate {
+        discord_id: ***REMOVED***,
+        name: "***REMOVED***",
+    },
+    Flatemate {
+        discord_id: ***REMOVED***,
+        name: "***REMOVED***",
+    },
+    Flatemate {
+        discord_id: ***REMOVED***,
+        name: "***REMOVED***",
+    },
+];
 
 pub const PHRASES: &[&str] = &[
     "Auckland's getting congested again!",
