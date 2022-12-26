@@ -1,9 +1,7 @@
 //! Various utilities to assist with writing application commands for the DIANA bot
 
 use log::{debug, error, info, warn};
-use serenity::{
-    builder::CreateInteractionResponse, model::prelude::interaction::InteractionResponseType,
-};
+use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code, clippy::missing_docs_in_private_items)]
@@ -18,11 +16,11 @@ pub enum FailureMessageKind {
 /// has both basic and complex success and failure states
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub enum CommandResponse<'a> {
+pub enum CommandResponse {
     /// a basic success, will return the contained string in a simple message to the user
     BasicSuccess(String),
     /// a complex success, will return the contained interaction response exactly to the user
-    ComplexSuccess(CreateInteractionResponse<'a>),
+    ComplexSuccess(CreateInteractionResponse),
     /// a basic failure, will return the contained string in a simple message to the user
     /// and log the message to the console
     BasicFailure(String),
@@ -43,7 +41,7 @@ pub enum CommandResponse<'a> {
     NoResponse,
 }
 
-impl<'a> CommandResponse<'a> {
+impl CommandResponse {
     /// Get the log message to write to the console, if it exists
     pub fn get_log_message(&self) -> Option<&str> {
         match self {
@@ -76,38 +74,32 @@ impl<'a> CommandResponse<'a> {
     }
 
     /// generate a response to be sent to the user from the CommandResponse type
-    pub fn generate_response(self) -> Option<CreateInteractionResponse<'a>> {
+    pub fn generate_response(self) -> Option<CreateInteractionResponse> {
         match self {
-            CommandResponse::BasicSuccess(message) => Some(
-                CreateInteractionResponse::default()
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|data| data.ephemeral(true).content(message))
-                    .to_owned(),
-            ),
+            CommandResponse::BasicSuccess(message) => Some(CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::default()
+                    .ephemeral(true)
+                    .content(message),
+            )),
             CommandResponse::ComplexSuccess(message) => Some(message),
-            CommandResponse::BasicFailure(message) => Some(
-                CreateInteractionResponse::default()
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|data| data.ephemeral(true).content(message))
-                    .to_owned(),
-            ),
-            CommandResponse::ComplexFailure { response, .. } => Some(
-                CreateInteractionResponse::default()
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|data| data.ephemeral(true).content(response))
-                    .to_owned(),
-            ),
-            CommandResponse::InternalFailure(_) => Some(
-                CreateInteractionResponse::default()
-                    .kind(InteractionResponseType::ChannelMessageWithSource)
-                    .interaction_response_data(|data| {
-                        data.ephemeral(true).content("An internal error occurred.")
-                    })
-                    .to_owned(),
-            ),
+            CommandResponse::BasicFailure(message) => Some(CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::default()
+                    .ephemeral(true)
+                    .content(message),
+            )),
+            CommandResponse::ComplexFailure { response, .. } => {
+                Some(CreateInteractionResponse::Message(
+                    CreateInteractionResponseMessage::default()
+                        .ephemeral(true)
+                        .content(response),
+                ))
+            }
+            CommandResponse::InternalFailure(_) => Some(CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::default()
+                    .ephemeral(true)
+                    .content("An internal error occurred."),
+            )),
             CommandResponse::NoResponse => None,
         }
     }
 }
-
-/////////// HELPER FUNCTIONS ///////////
