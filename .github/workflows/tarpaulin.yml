@@ -17,7 +17,7 @@ on:
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: '0.21.0'
+          version: '0.23.1'
           args: '--all'
 
       - name: Upload to codecov.io
