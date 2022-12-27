@@ -1,3 +1,6 @@
+use std::time::SystemTime;
+
+use chrono::{DateTime, Utc};
 use serenity::{
     all::{
         ButtonStyle, CommandDataOptionValue, CommandInteraction, CommandOptionType,
@@ -141,7 +144,10 @@ impl<'a> Command<'a> for PayCommand {
                         .embed(
                             CreateEmbed::new()
                                 .title("Bill created")
-                                .description(format!("Bill for {} created", purpose))
+                                .description(format!(
+                                    "Bill for {} created by {}",
+                                    purpose, interaction.user.name
+                                ))
                                 .color(0xFF0000)
                                 .fields({
                                     let mut fields: Vec<(String, String, bool)> =
@@ -221,6 +227,10 @@ impl<'a> InteractionCommand<'a> for PayCommand {
 
         let mut message = interaction.message.clone();
 
+        let current_time = SystemTime::now();
+        let current_time: DateTime<Utc> = current_time.into();
+        let current_time = current_time.to_rfc2822();
+
         if let Err(e) = message
             .edit(
                 &ctx,
@@ -233,6 +243,9 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                                 .unwrap_or(&String::from("")),
                         )
                         .color(0xFF0000)
+                        .footer(CreateEmbedFooter::new(
+                            PHRASES[rand::random::<usize>() % PHRASES.len()],
+                        ))
                         .fields({
                             let mut fields: Vec<(String, String, bool)> =
                                 Vec::with_capacity(message.embeds[0].fields.len());
@@ -240,11 +253,12 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                                 if field.name.to_lowercase().contains(user.name) {
                                     fields.push((
                                         format!(
-                                            "~~Amount for {}{} to pay!~~",
+                                            "{}{} paid {} on:",
                                             user.name[0..1].to_uppercase(),
-                                            &user.name[1..]
+                                            &user.name[1..],
+                                            field.value
                                         ),
-                                        field.value.clone(),
+                                        current_time.to_string(),
                                         field.inline,
                                     ));
                                 } else {
