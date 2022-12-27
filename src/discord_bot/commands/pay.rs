@@ -65,7 +65,7 @@ impl<'a> Command<'a> for PayCommand {
         for flatmate in FLATMATES.iter() {
             cmd = cmd.add_option(
                 CreateCommandOption::new(
-                    CommandOptionType::Integer,
+                    CommandOptionType::Number,
                     flatmate.name.to_ascii_lowercase(),
                     format!("The amount for {} to pay.", flatmate.name),
                 )
@@ -87,7 +87,7 @@ impl<'a> Command<'a> for PayCommand {
 
         let mut purpose: Option<&str> = None;
         let mut receipt: Option<&Attachment> = None;
-        let mut amount: Vec<(&str, i64)> = Vec::with_capacity(FLATMATES.len());
+        let mut amount: Vec<(&str, f64)> = Vec::with_capacity(FLATMATES.len());
 
         for option in options.iter() {
             match option.name.as_str() {
@@ -113,7 +113,7 @@ impl<'a> Command<'a> for PayCommand {
                 }
                 _ => {
                     let name = option.name.as_str();
-                    let value = option.value.as_i64().unwrap();
+                    let value = option.value.as_f64().unwrap();
                     amount.push((name, value));
                 }
             }
@@ -122,7 +122,7 @@ impl<'a> Command<'a> for PayCommand {
         // if any names aren't present, add them with a value of 0
         for flatmate in FLATMATES.iter() {
             if !amount.iter().any(|(n, _)| n == &flatmate.name) {
-                amount.push((flatmate.name, 0));
+                amount.push((flatmate.name, 0.0));
             }
         }
 
@@ -159,7 +159,7 @@ impl<'a> Command<'a> for PayCommand {
                                                 name[0..1].to_uppercase(),
                                                 &name[1..]
                                             ),
-                                            value.to_string(),
+                                            format!("${:.2}", value),
                                             false,
                                         ));
                                     }
@@ -250,7 +250,9 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                             let mut fields: Vec<(String, String, bool)> =
                                 Vec::with_capacity(message.embeds[0].fields.len());
                             for field in message.embeds[0].fields.iter() {
-                                if field.name.to_lowercase().contains(user.name) {
+                                if field.name.to_lowercase().contains(user.name)
+                                    && field.name.contains("pay")
+                                {
                                     fields.push((
                                         format!(
                                             "{}{} paid {} on:",
