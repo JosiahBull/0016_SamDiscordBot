@@ -13,7 +13,7 @@ rand = "0.8.5"
 dotenv = "0.15.0"
 
 tokio = { version = "1", features = ["full"] }
-serenity = { version = "0.11.5", default-features = false, features = ["tokio", "builder", "cache", "client", "gateway", "http", "model", "utils", "rustls_backend", "collector"] }
+serenity = { git="https://github.com/serenity-rs/serenity", branch="next", default-features = false, features = ["full"] }
 
 # distance command
 reqwest = { version = "0.11.12", features = ["json"] }

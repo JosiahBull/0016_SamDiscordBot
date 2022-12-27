@@ -3,16 +3,16 @@
 
 use log::{error, info, warn};
 use serenity::{
+    all::Interaction,
     async_trait,
+    builder::{CreateAttachment, EditProfile},
     client::{Context, EventHandler},
     model::{
         gateway::Ready,
         guild::{Guild, Member, UnavailableGuild},
-        prelude::{interaction::Interaction, Message},
+        prelude::Message,
     },
 };
-
-use serenity::utils::read_image;
 
 use crate::{discord_bot::guilds::GuildHandler, state::AppState};
 
@@ -48,7 +48,7 @@ impl EventHandler for Handler {
     }
 
     /// initalise a guild handler when the bot is added to a new guild
-    async fn guild_create(&self, ctx: Context, guild: Guild, _: bool) {
+    async fn guild_create(&self, ctx: Context, guild: Guild, _: Option<bool>) {
         let data_read = ctx.data.read().await;
 
         //wait for the bot's discord id to exist in the context
@@ -108,7 +108,7 @@ impl EventHandler for Handler {
             }
         };
 
-        if let Err(e) = internal_sender.send(DiscordEvent::DeletedGuild(guild.id.0)) {
+        if let Err(e) = internal_sender.send(DiscordEvent::DeletedGuild(guild.id.0.into())) {
             error!("Error sending deleted guild to internal sender: {:?}", e);
         }
     }
@@ -136,25 +136,17 @@ impl EventHandler for Handler {
         // set bot id for global state
         {
             let mut data_write = ctx.data.write().await;
-            data_write.insert::<BotDiscordId>(BotDiscordId::new(ready.user.id.0));
+            data_write.insert::<BotDiscordId>(BotDiscordId::new(ready.user.id.0.into()));
         }
-
-        // NOTE: it's easy to hit rate limits, so we need to be careful about this
-        let image = match read_image("assets/profile.jpg") {
-            Ok(image) => image,
-            Err(e) => {
-                error!("Error reading logo image: {:?}", e);
-                return;
-            }
-        };
 
         ready
             .user
-            .edit(&ctx, |p| {
-                p.avatar(Some(&image))
-                    .email("info@josiahbull.com")
-                    .username("The NPC")
-            })
+            .edit(
+                &ctx,
+                EditProfile::new()
+                    .avatar(&CreateAttachment::path("assets/profile.jpg").await.unwrap())
+                    .username("The NPC"),
+            )
             .await
             .unwrap_or_else(|_| error!("unable to set profile picture"));
     }

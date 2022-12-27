@@ -5,8 +5,9 @@ use std::{collections::HashMap, ops::DerefMut, time::Duration};
 
 use log::{error, trace};
 use serenity::{
+    all::Interaction,
     futures::{stream::FuturesUnordered, StreamExt},
-    model::prelude::{interaction::Interaction, Message},
+    model::prelude::Message,
     prelude::{GatewayIntents, TypeMapKey},
     Client,
 };
@@ -149,7 +150,7 @@ impl<T: Send + Sync + 'static + Clone + TypeMapKey<Value = T>> DiscordBot<T> {
                         match i_e {
                             DiscordEvent::NewGuild(mut handler) => {
                                 // finish creating the handler
-                                let key: u64 = handler.guild_id.0;
+                                let key: u64 = handler.guild_id.into();
                                 if guild_handlers.contains_key(&key) {
                                     error!("tried to double handle a guild");
                                     if let Err(e) = handler.close(Duration::from_secs(0)).await {
@@ -182,14 +183,14 @@ impl<T: Send + Sync + 'static + Clone + TypeMapKey<Value = T>> DiscordBot<T> {
                                         error!("got ping application command, which was not handled");
                                         continue;
                                     },
-                                    Interaction::ApplicationCommand(ref c) => c.guild_id,
-                                    Interaction::MessageComponent(ref c) => c.guild_id,
+                                    Interaction::Command(ref c) => c.guild_id,
+                                    Interaction::Component(ref c) => c.guild_id,
                                     Interaction::Autocomplete(ref c) => c.guild_id,
-                                    Interaction::ModalSubmit(ref c) => c.guild_id,
+                                    Interaction::Modal(ref c) => c.guild_id,
                                 };
 
-                                let guild_id = match guild_id {
-                                    Some(g_id) => g_id.0,
+                                let guild_id: u64 = match guild_id {
+                                    Some(g_id) => g_id.0.into(),
                                     None => {
                                         error!("got interaction without guild id");
                                         continue;
@@ -212,7 +213,7 @@ impl<T: Send + Sync + 'static + Clone + TypeMapKey<Value = T>> DiscordBot<T> {
                                     trace!("skipped handling private message");
                                     continue;
                                 }
-                                let guild_id = msg.guild_id.unwrap().0;
+                                let guild_id = msg.guild_id.unwrap().0.into();
 
                                 let g_h = match guild_handlers.get(&guild_id) {
                                     Some(s) => s.internal_tx.clone(),
