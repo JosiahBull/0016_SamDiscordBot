@@ -19,4 +19,11 @@ WORKDIR /app
 COPY --from=builder /app/target/release/tom_bot /app/
 COPY --from=builder /app/assets/* /assets/
 
+ENV TZ=Pacific/Auckland
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+RUN apt-get update
+RUN apt-get install ca-certificates -y
+RUN apt-get clean
+
 CMD [ "/app/tom_bot" ]
