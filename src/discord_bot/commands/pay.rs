@@ -197,8 +197,14 @@ impl<'a> Command<'a> for PayCommand {
 
 #[async_trait]
 impl<'a> InteractionCommand<'a> for PayCommand {
-    fn answerable<'b>(_: &'b ComponentInteraction, _: &'b AppState, _: &'b Context) -> bool {
-        true //TODO
+    fn answerable<'b>(
+        interaction: &'b ComponentInteraction,
+        _: &'b AppState,
+        _: &'b Context,
+    ) -> bool {
+        //XXX: eventually it'll be good to store message id's in the database, and react to those *specifically*
+        let mut lines = interaction.message.content.lines();
+        matches!(lines.next(), Some(s) if s.starts_with("Bill for"))
     }
 
     async fn interaction<'b>(
@@ -226,7 +232,7 @@ impl<'a> InteractionCommand<'a> for PayCommand {
 
         let mut message = interaction.message.clone();
 
-        let current_time = chrono::offset::Local::now().format("%d/%m/%y %I:%M%P");
+        let current_time = chrono::offset::Local::now().format("%d/%m/%y at %I:%M%P");
 
         let mut all_set = 0;
 
