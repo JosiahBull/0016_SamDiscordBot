@@ -1,6 +1,3 @@
-use std::time::SystemTime;
-
-use chrono::{DateTime, Utc};
 use serenity::{
     all::{
         ButtonStyle, CommandDataOptionValue, CommandInteraction, CommandOptionType,
@@ -145,8 +142,10 @@ impl<'a> Command<'a> for PayCommand {
                             CreateEmbed::new()
                                 .title("Bill created")
                                 .description(format!(
-                                    "Bill for {} created by {}",
-                                    purpose, interaction.user.name
+                                    "Bill for {} created by {} on {}",
+                                    purpose,
+                                    interaction.user.name,
+                                    chrono::offset::Local::now().format("%d/%m/%y at %I:%M%P")
                                 ))
                                 .color(0xFF0000)
                                 .fields({
@@ -227,9 +226,9 @@ impl<'a> InteractionCommand<'a> for PayCommand {
 
         let mut message = interaction.message.clone();
 
-        let current_time = SystemTime::now();
-        let current_time: DateTime<Utc> = current_time.into();
-        let current_time = current_time.to_rfc2822();
+        let current_time = chrono::offset::Local::now().format("%d/%m/%y %I:%M%P");
+
+        let mut all_set = 0;
 
         if let Err(e) = message
             .edit(
@@ -242,7 +241,6 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                                 .as_ref()
                                 .unwrap_or(&String::from("")),
                         )
-                        .color(0xFF0000)
                         .footer(CreateEmbedFooter::new(
                             PHRASES[rand::random::<usize>() % PHRASES.len()],
                         ))
@@ -250,6 +248,9 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                             let mut fields: Vec<(String, String, bool)> =
                                 Vec::with_capacity(message.embeds[0].fields.len());
                             for field in message.embeds[0].fields.iter() {
+                                if field.name.contains("paid") {
+                                    all_set += 1;
+                                }
                                 if field.name.to_lowercase().contains(user.name)
                                     && field.name.contains("pay")
                                 {
@@ -263,6 +264,7 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                                         current_time.to_string(),
                                         field.inline,
                                     ));
+                                    all_set += 1;
                                 } else {
                                     fields.push((
                                         field.name.clone(),
@@ -272,6 +274,13 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                                 }
                             }
                             fields
+                        })
+                        .color({
+                            if all_set == FLATMATES.len() {
+                                0x00FF00
+                            } else {
+                                0xFF0000
+                            }
                         }),
                 ),
             )
@@ -288,7 +297,11 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                 &ctx,
                 CreateInteractionResponse::Message(
                     CreateInteractionResponseMessage::new()
-                        .content(format!("{} paid!", user.name))
+                        .content(format!(
+                            "{}{} paid!",
+                            user.name[0..1].to_uppercase(),
+                            &user.name[1..]
+                        ))
                         .ephemeral(true),
                 ),
             )
