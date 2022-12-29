@@ -1,4 +1,5 @@
-use log::error;
+use std::collections::HashSet;
+
 use serenity::{
     all::{
         AutocompleteOption, ButtonStyle, CommandInteraction, CommandOptionType,
@@ -21,6 +22,73 @@ use super::{
     command::{AutocompleteCommand, Command, InteractionCommand},
     util::CommandResponse,
 };
+
+async fn handle_autocomplete_for_pay<'c>(
+    interaction: &'c CommandInteraction,
+    autocomplete: &'c AutocompleteOption<'_>,
+) -> Result<CreateAutocompleteResponse, CommandResponse> {
+    let mut response = CreateAutocompleteResponse::new();
+
+    // match over which option is focussed, and provide options for that
+    match autocomplete.name {
+        "purpose" => {
+            response = response.set_choices(vec![
+                AutocompleteChoice {
+                    name: String::from("Food"),
+                    value: Value::from("food"),
+                },
+                AutocompleteChoice {
+                    name: String::from("Power"),
+                    value: Value::from("power"),
+                },
+                AutocompleteChoice {
+                    name: String::from("Water"),
+                    value: Value::from("water"),
+                },
+                AutocompleteChoice {
+                    name: String::from("Internet/Wifi"),
+                    value: Value::from("internet"),
+                },
+            ]);
+        }
+        i if FLATMATES.iter().any(|f| f.name.to_ascii_lowercase() == *i) => {
+            // load all previous values that have been entered as options, and use those as the options for payment
+            // this will allow for easy re-use of values
+
+            let mut existing_options: HashSet<String> = HashSet::default();
+
+            for option in interaction.data.options().iter_mut() {
+                if matches!(option.value, ResolvedValue::Unresolved(_)) {
+                    continue;
+                }
+
+                match option.name {
+                    "purpose" | "receipt" => {
+                        continue;
+                    }
+                    i => {
+                        if let ResolvedValue::Number(num) = option.value {
+                            let num_str = format!("{:.2}", num);
+                            // check if existing num is in the list of options
+                            if !existing_options.contains(&num_str) {
+                                response = response
+                                    .add_number_choice(format!("***REMOVED***e as {} ({:.2})", i, num), num);
+                                existing_options.insert(num_str);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        _ => {
+            return Err(CommandResponse::InternalFailure(
+                "Invalid autocomplete option".to_string(),
+            ));
+        }
+    }
+
+    Ok(response)
+}
 
 async fn create_response<'a>(
     purpose: &str,
@@ -61,9 +129,10 @@ async fn create_response<'a>(
 
                         fields
                     })
-                    .footer(CreateEmbedFooter::new(
-                        PHRASES[rand::random::<usize>() % PHRASES.len()],
-                    )),
+                    .footer(CreateEmbedFooter::new(format!(
+                        "\n{}",
+                        PHRASES[rand::random::<usize>() % PHRASES.len()]
+                    ))),
             )
             .add_file(CreateAttachment::url(ctx, receipt).await.unwrap()) //XXX: handle error
             .components({
@@ -279,9 +348,14 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                                 .as_ref()
                                 .unwrap_or(&String::from("")),
                         )
-                        .footer(CreateEmbedFooter::new(
-                            PHRASES[rand::random::<usize>() % PHRASES.len()],
-                        ))
+                        .footer(CreateEmbedFooter::new({
+                            interaction.message.embeds[0]
+                                .footer
+                                .as_ref()
+                                .expect("footer to be present")
+                                .text
+                                .clone()
+                        }))
                         .fields({
                             let mut fields: Vec<(String, String, bool)> =
                                 Vec::with_capacity(message.embeds[0].fields.len());
@@ -358,67 +432,7 @@ impl<'a> AutocompleteCommand<'a> for PayCommand {
         _: &'c AppState,
         _: &'c Context,
     ) -> Result<CreateAutocompleteResponse, CommandResponse> {
-        let mut response = CreateAutocompleteResponse::new();
-
-        // match over which option is focussed, and provide options for that
-        match autocomplete.name {
-            "purpose" => {
-                response = response.set_choices(vec![
-                    AutocompleteChoice {
-                        name: String::from("Food"),
-                        value: Value::from("food"),
-                    },
-                    AutocompleteChoice {
-                        name: String::from("Power"),
-                        value: Value::from("power"),
-                    },
-                    AutocompleteChoice {
-                        name: String::from("Water"),
-                        value: Value::from("water"),
-                    },
-                    AutocompleteChoice {
-                        name: String::from("Internet/Wifi"),
-                        value: Value::from("internet"),
-                    },
-                ]);
-            }
-            i if FLATMATES.iter().any(|f| f.name.to_ascii_lowercase() == *i) => {
-                // load all previous values that have been entered as options, and use those as the options for payment
-                // this will allow for easy re-use of values
-
-                for option in interaction.data.options().iter_mut() {
-                    if matches!(option.value, ResolvedValue::Unresolved(_)) {
-                        continue;
-                    }
-
-                    match option.name {
-                        "purpose" | "receipt" => {
-                            // do nothing
-                        }
-                        i => {
-                            if let ResolvedValue::Number(f) = option.value {
-                                response = response.add_number_choice(format!("***REMOVED***e as {}", i), f);
-                            } else {
-                                error!(
-                                    "failed to parse {} containing {:?} as float",
-                                    i, option.value
-                                );
-                                return Err(CommandResponse::InternalFailure(
-                                    "Unable to parse option as float?!".to_string(),
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-            _ => {
-                return Err(CommandResponse::InternalFailure(
-                    "Invalid autocomplete option".to_string(),
-                ));
-            }
-        }
-
-        Ok(response)
+        handle_autocomplete_for_pay(interaction, autocomplete).await
     }
 }
 
@@ -450,13 +464,14 @@ impl<'a> Command<'a> for PayAllCommand {
                 "purpose",
                 "What the payment is for",
             )
-            .required(true),
+            .required(true)
+            .set_autocomplete(true),
         )
         .add_option(
             CreateCommandOption::new(
-                CommandOptionType::String,
+                CommandOptionType::Attachment,
                 "receipt",
-                "A link to the receipt",
+                "A receipt for the payment",
             )
             .required(true),
         )
@@ -555,5 +570,17 @@ impl<'a> Command<'a> for PayAllCommand {
         }
 
         Ok(CommandResponse::NoResponse)
+    }
+}
+
+#[async_trait]
+impl<'a> AutocompleteCommand<'a> for PayAllCommand {
+    async fn autocomplete<'c>(
+        interaction: &'c CommandInteraction,
+        autocomplete: &'c AutocompleteOption,
+        _: &'c AppState,
+        _: &'c Context,
+    ) -> Result<CreateAutocompleteResponse, CommandResponse> {
+        handle_autocomplete_for_pay(interaction, autocomplete).await
     }
 }

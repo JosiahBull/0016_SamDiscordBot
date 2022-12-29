@@ -136,7 +136,7 @@ macro_rules! autocomplete {
                     }
                 }
             )*
-            Err(CommandResponse::InternalFailure(String::from("Unsupported Command")))
+            Err(CommandResponse::InternalFailure(String::from("Unsupported Autocomplete Command")))
         }
     };
 }
@@ -153,7 +153,7 @@ macro_rules! interaction {
                     return <$x>::interaction($cmd, $state, $context).await
                 }
             )*
-            Err(CommandResponse::InternalFailure(String::from("Unsupported Command")))
+            Err(CommandResponse::InternalFailure(String::from("Unsupported Interaction Command")))
         }
     };
 }
@@ -196,12 +196,7 @@ pub async fn autocomplete<'a>(
     app_state: &'a AppState,
     context: &'a Context,
 ) -> Result<CreateAutocompleteResponse, CommandResponse> {
-    autocomplete!(
-        command,
-        app_state,
-        context,
-        PayCommand, // also handles PayAllCommand
-    )
+    autocomplete!(command, app_state, context, PayCommand, PayAllCommand)
 }
 
 pub async fn interaction<'a>(
