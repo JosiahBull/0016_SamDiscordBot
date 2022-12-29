@@ -8,7 +8,10 @@ use serenity::{
 
 use crate::{
     discord_bot::commands::{
-        distance::DistanceCommand, hide::HideCommand, pay::PayCommand, ping::PingCommand,
+        distance::DistanceCommand,
+        hide::HideCommand,
+        pay::{PayAllCommand, PayCommand},
+        ping::PingCommand,
         say::SayCommand,
     },
     state::AppState,
@@ -44,6 +47,7 @@ pub trait Command<'a>: TryFrom<&'a CommandInteraction> {
 pub trait AutocompleteCommand<'a>: Command<'a> {
     /// get the autocomplete options for this command, given the current input
     async fn autocomplete<'c>(
+        command: &'c CommandInteraction,
         message: &'c AutocompleteOption,
         app_state: &'c AppState,
         context: &'c Context,
@@ -126,7 +130,10 @@ macro_rules! autocomplete {
             $(
                 assert_autocomplete::<$x>();
                 if ($cmd).data.name == <$x>::name() {
-                    return <$x>::autocomplete($cmd, $state, $context).await
+                    return match $cmd.data.autocomplete() {
+                        Some(data) => <$x>::autocomplete($cmd, &data, $state, $context).await,
+                        None => Err(CommandResponse::InternalFailure(String::from("No Autocomplete Data Provided")))
+                    }
                 }
             )*
             Err(CommandResponse::InternalFailure(String::from("Unsupported Command")))
@@ -159,7 +166,8 @@ pub fn application_command() -> Vec<CreateCommand> {
         PingCommand,
         SayCommand,
         DistanceCommand,
-        PayCommand
+        PayCommand,
+        PayAllCommand
     );
     base
 }
@@ -177,7 +185,8 @@ pub async fn command<'a>(
         PingCommand,
         SayCommand,
         DistanceCommand,
-        PayCommand
+        PayCommand,
+        PayAllCommand
     )
 }
 
@@ -187,7 +196,12 @@ pub async fn autocomplete<'a>(
     app_state: &'a AppState,
     context: &'a Context,
 ) -> Result<CreateAutocompleteResponse, CommandResponse> {
-    autocomplete!(command, app_state, context,)
+    autocomplete!(
+        command,
+        app_state,
+        context,
+        PayCommand, // also handles PayAllCommand
+    )
 }
 
 pub async fn interaction<'a>(
@@ -195,5 +209,10 @@ pub async fn interaction<'a>(
     app_state: &'a AppState,
     context: &'a Context,
 ) -> Result<CommandResponse, CommandResponse> {
-    interaction!(command, app_state, context, PayCommand)
+    interaction!(
+        command,
+        app_state,
+        context,
+        PayCommand, // also handles PayAllCommand
+    )
 }

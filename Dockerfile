@@ -16,11 +16,12 @@ RUN cargo build --release
 # We do not need the Rust toolchain to run the binary!
 FROM debian:bullseye-slim AS runtime
 WORKDIR /app
-COPY --from=builder /app/target/release/tom_bot /app/
-COPY --from=builder /app/assets/* /assets/
 
 ENV TZ=Pacific/Auckland
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+COPY --from=builder /app/target/release/tom_bot /app/
+COPY --from=builder /app/assets/* /app/assets/
 
 RUN apt-get update
 RUN apt-get install ca-certificates -y

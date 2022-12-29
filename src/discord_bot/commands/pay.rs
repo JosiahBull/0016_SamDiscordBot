@@ -1,24 +1,85 @@
+use log::error;
 use serenity::{
     all::{
-        ButtonStyle, CommandDataOptionValue, CommandInteraction, CommandOptionType,
-        ComponentInteraction,
+        AutocompleteOption, ButtonStyle, CommandInteraction, CommandOptionType,
+        ComponentInteraction, ResolvedValue,
     },
     async_trait,
     builder::{
-        CreateActionRow, CreateAttachment, CreateButton, CreateCommand, CreateCommandOption,
-        CreateEmbed, CreateEmbedFooter, CreateInteractionResponse,
-        CreateInteractionResponseMessage, EditMessage,
+        AutocompleteChoice, CreateActionRow, CreateAttachment, CreateAutocompleteResponse,
+        CreateButton, CreateCommand, CreateCommandOption, CreateEmbed, CreateEmbedFooter,
+        CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage,
     },
+    json::Value,
     model::prelude::Attachment,
     prelude::Context,
 };
 
-use crate::state::{AppState, Flatemate, FLATMATES, PHRASES};
+use crate::state::{AppState, Flatmate, FLATMATES, HEAD_TENANT_ACC_NUMBER, PHRASES};
 
 use super::{
-    command::{Command, InteractionCommand},
+    command::{AutocompleteCommand, Command, InteractionCommand},
     util::CommandResponse,
 };
+
+async fn create_response<'a>(
+    purpose: &str,
+    user: &str,
+    receipt: &str,
+    total: f64,
+    amounts: Vec<(&Flatmate<'a>, f64)>,
+    ctx: &Context,
+) -> CreateInteractionResponse {
+    CreateInteractionResponse::Message(
+        CreateInteractionResponseMessage::new()
+            .embed(
+                CreateEmbed::new()
+                    .title("Bill created")
+                    .description(format!(
+                        "Bill for {} totalling {:.2} created by {} on {} to be paid into `{}`",
+                        purpose,
+                        total,
+                        user,
+                        chrono::offset::Local::now().format("%d/%m/%y at %I:%M%P"),
+                        HEAD_TENANT_ACC_NUMBER
+                    ))
+                    .color(0xFF0000)
+                    .fields({
+                        let mut fields: Vec<(String, String, bool)> =
+                            Vec::with_capacity(amounts.len());
+                        for (flatmate, amount) in amounts {
+                            if amount == 0.0 {
+                                continue;
+                            }
+
+                            fields.push((
+                                format!("Amount for {} to pay:", flatmate.display_name),
+                                format!("${:.2}", amount),
+                                false,
+                            ));
+                        }
+
+                        fields
+                    })
+                    .footer(CreateEmbedFooter::new(
+                        PHRASES[rand::random::<usize>() % PHRASES.len()],
+                    )),
+            )
+            .add_file(CreateAttachment::url(ctx, receipt).await.unwrap()) //XXX: handle error
+            .components({
+                let mut components = Vec::with_capacity(2);
+                components.push(CreateActionRow::Buttons({
+                    vec![
+                        CreateButton::new("paid")
+                            .style(ButtonStyle::Success)
+                            .label("Paid!"),
+                        CreateButton::new_link(receipt).label("Receipt"),
+                    ]
+                }));
+                components
+            }),
+    )
+}
 
 pub struct PayCommand {}
 
@@ -48,7 +109,8 @@ impl<'a> Command<'a> for PayCommand {
                     "purpose",
                     "What is this bill for?",
                 )
-                .required(true),
+                .required(true)
+                .set_autocomplete(true),
             )
             .add_option(
                 CreateCommandOption::new(
@@ -66,7 +128,8 @@ impl<'a> Command<'a> for PayCommand {
                     flatmate.name.to_ascii_lowercase(),
                     format!("The amount for {} to pay.", flatmate.name),
                 )
-                .required(true),
+                .required(true)
+                .set_autocomplete(true),
             );
         }
 
@@ -80,51 +143,50 @@ impl<'a> Command<'a> for PayCommand {
         ctx: &'b Context,
     ) -> Result<CommandResponse, CommandResponse> {
         // extract the options
-        let options = &interaction.data.options;
+        let options = interaction.data.options();
 
         let mut purpose: Option<&str> = None;
         let mut receipt: Option<&Attachment> = None;
-        let mut amount: Vec<(&str, f64)> = Vec::with_capacity(FLATMATES.len());
+        let mut amount = 0.0;
+        let mut amounts: Vec<(&Flatmate, f64)> = Vec::with_capacity(FLATMATES.len());
 
         for option in options.iter() {
-            match option.name.as_str() {
+            match option.name {
                 "purpose" => {
-                    purpose = Some(option.value.as_str().unwrap());
-                }
-                "receipt" if matches!(option.value, CommandDataOptionValue::Attachment(_)) => {
-                    if let CommandDataOptionValue::Attachment(attachment) = &option.value {
-                        receipt = Some(
-                            interaction
-                                .data
-                                .resolved
-                                .attachments
-                                .get(attachment)
-                                .unwrap(),
-                        ); //XXX: handle error
+                    if let ResolvedValue::String(s) = option.value {
+                        purpose = Some(s);
+                    } else {
+                        return Err(CommandResponse::InternalFailure(
+                            "Failed to parse purpose as a string".to_string(),
+                        ));
                     }
                 }
                 "receipt" => {
-                    return Err(CommandResponse::InternalFailure(
-                        "Failed to parse receipt as an attachment".to_string(),
-                    ));
+                    if let ResolvedValue::Attachment(attachment) = option.value {
+                        receipt = Some(attachment);
+                    } else {
+                        return Err(CommandResponse::InternalFailure(
+                            "Failed to parse receipt as an attachment".to_string(),
+                        ));
+                    }
                 }
                 _ => {
-                    let name = option.name.as_str();
-                    let value = option.value.as_f64().unwrap();
-                    amount.push((name, value));
-                }
-            }
-        }
+                    let name = option.name;
 
-        // if any names aren't present, add them with a value of 0
-        for flatmate in FLATMATES.iter() {
-            if !amount.iter().any(|(n, _)| n == &flatmate.name) {
-                amount.push((flatmate.name, 0.0));
+                    if let ResolvedValue::Number(value) = option.value {
+                        amount += value;
+                        amounts.push((FLATMATES.iter().find(|f| f.name == name).unwrap(), value));
+                    } else {
+                        return Err(CommandResponse::InternalFailure(
+                            "Failed to parse amount as a number".to_string(),
+                        ));
+                    }
+                }
             }
         }
 
         // check if initialisation was successful
-        if purpose.is_none() || receipt.is_none() || amount.is_empty() {
+        if purpose.is_none() || receipt.is_none() || amounts.is_empty() {
             return Err(CommandResponse::InternalFailure(
                 "Failed to initialize command".to_string(),
             ));
@@ -136,52 +198,15 @@ impl<'a> Command<'a> for PayCommand {
         if let Err(e) = interaction
             .create_response(
                 &ctx,
-                CreateInteractionResponse::Message(
-                    CreateInteractionResponseMessage::new()
-                        .embed(
-                            CreateEmbed::new()
-                                .title("Bill created")
-                                .description(format!(
-                                    "Bill for {} created by {} on {}",
-                                    purpose,
-                                    interaction.user.name,
-                                    chrono::offset::Local::now().format("%d/%m/%y at %I:%M%P")
-                                ))
-                                .color(0xFF0000)
-                                .fields({
-                                    let mut fields: Vec<(String, String, bool)> =
-                                        Vec::with_capacity(amount.len());
-                                    for (name, value) in amount.iter() {
-                                        fields.push((
-                                            format!(
-                                                "Amount for {}{} to pay:",
-                                                name[0..1].to_uppercase(),
-                                                &name[1..]
-                                            ),
-                                            format!("${:.2}", value),
-                                            false,
-                                        ));
-                                    }
-                                    fields
-                                })
-                                .footer(CreateEmbedFooter::new(
-                                    PHRASES[rand::random::<usize>() % PHRASES.len()],
-                                )),
-                        )
-                        .add_file(CreateAttachment::url(&ctx, &receipt.url).await.unwrap()) //XXX: handle error
-                        .components({
-                            let mut components = Vec::with_capacity(2);
-                            components.push(CreateActionRow::Buttons({
-                                vec![
-                                    CreateButton::new("paid")
-                                        .style(ButtonStyle::Success)
-                                        .label("Paid!"),
-                                    CreateButton::new_link(&receipt.url).label("Receipt"),
-                                ]
-                            }));
-                            components
-                        }),
-                ),
+                create_response(
+                    purpose,
+                    &interaction.user.name,
+                    &receipt.url,
+                    amount,
+                    amounts,
+                    ctx,
+                )
+                .await,
             )
             .await
         {
@@ -203,8 +228,12 @@ impl<'a> InteractionCommand<'a> for PayCommand {
         _: &'b Context,
     ) -> bool {
         //XXX: eventually it'll be good to store message id's in the database, and react to those *specifically*
-        let mut lines = interaction.message.content.lines();
-        matches!(lines.next(), Some(s) if s.starts_with("Bill for"))
+        if let Some(embed) = interaction.message.embeds.get(0) {
+            if let Some(description) = embed.description.as_ref() {
+                return description.starts_with("Bill for ");
+            }
+        }
+        false
     }
 
     async fn interaction<'b>(
@@ -219,7 +248,7 @@ impl<'a> InteractionCommand<'a> for PayCommand {
         }
 
         let user: u64 = interaction.user.id.into();
-        let user: Option<&Flatemate> = FLATMATES
+        let user: Option<&Flatmate> = FLATMATES
             .iter()
             .find(|flatmate| flatmate.discord_id == user);
 
@@ -229,12 +258,15 @@ impl<'a> InteractionCommand<'a> for PayCommand {
             ));
         }
         let user = user.unwrap();
-
         let mut message = interaction.message.clone();
-
         let current_time = chrono::offset::Local::now().format("%d/%m/%y at %I:%M%P");
-
         let mut all_set = 0;
+
+        if message.embeds.len() != 1 {
+            return Err(CommandResponse::InternalFailure(
+                "Invalid embeds in message".to_string(),
+            ));
+        }
 
         if let Err(e) = message
             .edit(
@@ -282,7 +314,7 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                             fields
                         })
                         .color({
-                            if all_set == FLATMATES.len() {
+                            if all_set == message.embeds[0].fields.len() {
                                 0x00FF00
                             } else {
                                 0xFF0000
@@ -313,6 +345,214 @@ impl<'a> InteractionCommand<'a> for PayCommand {
             )
             .await
             .unwrap();
+
+        Ok(CommandResponse::NoResponse)
+    }
+}
+
+#[async_trait]
+impl<'a> AutocompleteCommand<'a> for PayCommand {
+    async fn autocomplete<'c>(
+        interaction: &'c CommandInteraction,
+        autocomplete: &'c AutocompleteOption,
+        _: &'c AppState,
+        _: &'c Context,
+    ) -> Result<CreateAutocompleteResponse, CommandResponse> {
+        let mut response = CreateAutocompleteResponse::new();
+
+        // match over which option is focussed, and provide options for that
+        match autocomplete.name {
+            "purpose" => {
+                response = response.set_choices(vec![
+                    AutocompleteChoice {
+                        name: String::from("Food"),
+                        value: Value::from("food"),
+                    },
+                    AutocompleteChoice {
+                        name: String::from("Power"),
+                        value: Value::from("power"),
+                    },
+                    AutocompleteChoice {
+                        name: String::from("Water"),
+                        value: Value::from("water"),
+                    },
+                    AutocompleteChoice {
+                        name: String::from("Internet/Wifi"),
+                        value: Value::from("internet"),
+                    },
+                ]);
+            }
+            i if FLATMATES.iter().any(|f| f.name.to_ascii_lowercase() == *i) => {
+                // load all previous values that have been entered as options, and use those as the options for payment
+                // this will allow for easy re-use of values
+
+                for option in interaction.data.options().iter_mut() {
+                    if matches!(option.value, ResolvedValue::Unresolved(_)) {
+                        continue;
+                    }
+
+                    match option.name {
+                        "purpose" | "receipt" => {
+                            // do nothing
+                        }
+                        i => {
+                            if let ResolvedValue::Number(f) = option.value {
+                                response = response.add_number_choice(format!("***REMOVED***e as {}", i), f);
+                            } else {
+                                error!(
+                                    "failed to parse {} containing {:?} as float",
+                                    i, option.value
+                                );
+                                return Err(CommandResponse::InternalFailure(
+                                    "Unable to parse option as float?!".to_string(),
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {
+                return Err(CommandResponse::InternalFailure(
+                    "Invalid autocomplete option".to_string(),
+                ));
+            }
+        }
+
+        Ok(response)
+    }
+}
+
+/// A variation of the PayCommand which takes a single argument, and pays that amount to all flatmates
+pub struct PayAllCommand {}
+
+impl<'a> TryFrom<&'a CommandInteraction> for PayAllCommand {
+    type Error = String;
+
+    fn try_from(_: &'a CommandInteraction) -> Result<Self, Self::Error> {
+        Ok(Self {})
+    }
+}
+
+#[async_trait]
+impl<'a> Command<'a> for PayAllCommand {
+    fn name() -> &'static str {
+        "pay-all"
+    }
+
+    fn description() -> &'static str {
+        "Evenly split a bill between all flatmates"
+    }
+
+    fn get_application_command_options(cmd: CreateCommand) -> CreateCommand {
+        cmd.add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "purpose",
+                "What the payment is for",
+            )
+            .required(true),
+        )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "receipt",
+                "A link to the receipt",
+            )
+            .required(true),
+        )
+        .add_option(
+            CreateCommandOption::new(CommandOptionType::Number, "amount", "The amount to pay")
+                .required(true),
+        )
+    }
+
+    async fn handle_application_command<'b>(
+        self,
+        interaction: &'b CommandInteraction,
+        _: &'b AppState,
+        ctx: &'b Context,
+    ) -> Result<CommandResponse, CommandResponse> {
+        // extract the options
+        let options = interaction.data.options();
+
+        let mut purpose: Option<&str> = None;
+        let mut receipt: Option<&Attachment> = None;
+        let mut amount: Option<f64> = None;
+
+        for option in options.iter() {
+            match option.name {
+                "purpose" => {
+                    if let ResolvedValue::String(s) = option.value {
+                        purpose = Some(s);
+                    } else {
+                        return Err(CommandResponse::InternalFailure(
+                            "Failed to parse purpose as a string".to_string(),
+                        ));
+                    }
+                }
+                "receipt" => {
+                    if let ResolvedValue::Attachment(attachment) = option.value {
+                        receipt = Some(attachment);
+                    } else {
+                        return Err(CommandResponse::InternalFailure(
+                            "Failed to parse receipt as an attachment".to_string(),
+                        ));
+                    }
+                }
+                "amount" => {
+                    if let ResolvedValue::Number(n) = option.value {
+                        amount = Some(n);
+                    } else {
+                        return Err(CommandResponse::InternalFailure(
+                            "Failed to parse amount as a number".to_string(),
+                        ));
+                    }
+                }
+                _ => {
+                    return Err(CommandResponse::InternalFailure(
+                        "Invalid option".to_string(),
+                    ));
+                }
+            }
+        }
+
+        // check all values found
+        if purpose.is_none() || amount.is_none() || receipt.is_none() {
+            return Err(CommandResponse::InternalFailure(
+                "No purpose provided".to_string(),
+            ));
+        }
+        let purpose = purpose.unwrap();
+        let amount = amount.unwrap();
+        let receipt = receipt.unwrap();
+
+        // parse response and create message
+        let mut amounts: Vec<(&Flatmate<'_>, f64)> = Vec::with_capacity(FLATMATES.len());
+        let individual = amount / FLATMATES.len() as f64;
+        for flatmate in FLATMATES {
+            amounts.push((flatmate, individual));
+        }
+
+        if let Err(e) = interaction
+            .create_response(
+                &ctx,
+                create_response(
+                    purpose,
+                    &interaction.user.name,
+                    &receipt.url,
+                    amount,
+                    amounts,
+                    ctx,
+                )
+                .await,
+            )
+            .await
+        {
+            return Err(CommandResponse::InternalFailure(format!(
+                "Failed to create interaction response: {}",
+                e
+            )));
+        }
 
         Ok(CommandResponse::NoResponse)
     }

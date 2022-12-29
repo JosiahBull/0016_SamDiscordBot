@@ -6,15 +6,31 @@ services:
     container_name: geckodriver
     restart: always
     ports:
-      - 127.0.0.1:4444:4444
+      - 4444:4444
+    environment:
+      - TZ="Pacific/Auckland"
+    networks:
+      tombot_backend:
+        ipv4_address: 10.10.0.3
 
   tombot:
-    build: .
+    image: ghcr.io/***REMOVED***siahbull/tombot:main
+    container_name: tombot
     depends_on:
       - geckodriver
-    container_name: tombot
     restart: always
     environment:
       - DISCORD_TOKEN
       - GOOGLE_MAPS_TOKEN
-      - GECKO_DRIVER=http://geckodriver:4444/
+      - GECKO_DRIVER=http://10.10.0.3:4444/
+      - TZ="Pacific/Auckland"
+    networks:
+      tombot_backend:
+        ipv4_address: 10.10.0.2
+networks:
+  tombot_backend:
+    name: tombot_backend
+    ipam:
+      config:
+       - subnet: 10.10.0.0/24
+         gateway: 10.10.0.1
