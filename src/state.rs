@@ -4,27 +4,34 @@ use serenity::prelude::TypeMapKey;
 
 use crate::{google_api::maps::GoogleMapsApiHandle, trademe_api::TrademeApiHandle};
 
-pub struct Flatemate<'a> {
+pub const HEAD_TENANT_ACC_NUMBER: &str = "12-3126-0817423-00"; // TODO: load from env
+
+pub struct Flatmate<'a> {
     pub discord_id: u64,
     pub name: &'a str,
+    pub display_name: &'a str,
 }
-
-pub static FLATMATES: &[Flatemate<'static>] = &[
-    Flatemate {
+// TODO: load this from env
+pub const FLATMATES: &[Flatmate<'static>] = &[
+    Flatmate {
         discord_id: 204544796033941515,
         name: "jo",
+        display_name: "Jo",
     },
-    Flatemate {
+    Flatmate {
         discord_id: 461281958547161118,
         name: "bex",
+        display_name: "Bex",
     },
-    Flatemate {
+    Flatmate {
         discord_id: 338108076458770444,
         name: "sam",
+        display_name: "Sam",
     },
-    Flatemate {
+    Flatmate {
         discord_id: 187085887312494595,
         name: "william",
+        display_name: "William",
     },
 ];
 

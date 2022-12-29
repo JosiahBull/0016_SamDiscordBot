@@ -144,7 +144,11 @@ impl EventHandler for Handler {
             .edit(
                 &ctx,
                 EditProfile::new()
-                    .avatar(&CreateAttachment::path("assets/profile.jpg").await.unwrap())
+                    .avatar(
+                        &CreateAttachment::path("./assets/profile.jpg")
+                            .await
+                            .unwrap(),
+                    )
                     .username("The NPC"),
             )
             .await
