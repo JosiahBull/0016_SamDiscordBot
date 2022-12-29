@@ -5,7 +5,6 @@ ARG firefox_ver=105.0.2
 ARG geckodriver_ver=0.32.0
 ARG build_rev=0
 
-
 RUN apt-get update \
  && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends --no-install-suggests \
