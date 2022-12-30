@@ -96,6 +96,7 @@ async fn create_response<'a>(
     receipt: &str,
     total: f64,
     amounts: Vec<(&Flatmate<'a>, f64)>,
+    account: &str,
     ctx: &Context,
 ) -> CreateInteractionResponse {
     CreateInteractionResponse::Message(
@@ -109,7 +110,7 @@ async fn create_response<'a>(
                         total,
                         user,
                         chrono::offset::Local::now().format("%d/%m/%y at %I:%M%P"),
-                        HEAD_TENANT_ACC_NUMBER
+                        account
                     ))
                     .color(0xFF0000)
                     .fields({
@@ -202,7 +203,14 @@ impl<'a> Command<'a> for PayCommand {
             );
         }
 
-        cmd
+        cmd.add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "account",
+                "The account number to pay into, defaults to head tenant account.",
+            )
+            .required(false),
+        )
     }
 
     async fn handle_application_command<'b>(
@@ -218,6 +226,7 @@ impl<'a> Command<'a> for PayCommand {
         let mut receipt: Option<&Attachment> = None;
         let mut amount = 0.0;
         let mut amounts: Vec<(&Flatmate, f64)> = Vec::with_capacity(FLATMATES.len());
+        let mut account = HEAD_TENANT_ACC_NUMBER;
 
         for option in options.iter() {
             match option.name {
@@ -236,6 +245,15 @@ impl<'a> Command<'a> for PayCommand {
                     } else {
                         return Err(CommandResponse::InternalFailure(
                             "Failed to parse receipt as an attachment".to_string(),
+                        ));
+                    }
+                }
+                "account" => {
+                    if let ResolvedValue::String(s) = option.value {
+                        account = s;
+                    } else {
+                        return Err(CommandResponse::InternalFailure(
+                            "Failed to parse account as a string".to_string(),
                         ));
                     }
                 }
@@ -273,6 +291,7 @@ impl<'a> Command<'a> for PayCommand {
                     &receipt.url,
                     amount,
                     amounts,
+                    account,
                     ctx,
                 )
                 .await,
@@ -479,6 +498,14 @@ impl<'a> Command<'a> for PayAllCommand {
             CreateCommandOption::new(CommandOptionType::Number, "amount", "The amount to pay")
                 .required(true),
         )
+        .add_option(
+            CreateCommandOption::new(
+                CommandOptionType::String,
+                "account",
+                "The account number to pay into, defaults to head tenant account.",
+            )
+            .required(false),
+        )
     }
 
     async fn handle_application_command<'b>(
@@ -493,6 +520,7 @@ impl<'a> Command<'a> for PayAllCommand {
         let mut purpose: Option<&str> = None;
         let mut receipt: Option<&Attachment> = None;
         let mut amount: Option<f64> = None;
+        let mut account: &str = HEAD_TENANT_ACC_NUMBER;
 
         for option in options.iter() {
             match option.name {
@@ -520,6 +548,15 @@ impl<'a> Command<'a> for PayAllCommand {
                     } else {
                         return Err(CommandResponse::InternalFailure(
                             "Failed to parse amount as a number".to_string(),
+                        ));
+                    }
+                }
+                "account" => {
+                    if let ResolvedValue::String(s) = option.value {
+                        account = s;
+                    } else {
+                        return Err(CommandResponse::InternalFailure(
+                            "Failed to parse account as a string".to_string(),
                         ));
                     }
                 }
@@ -557,6 +594,7 @@ impl<'a> Command<'a> for PayAllCommand {
                     &receipt.url,
                     amount,
                     amounts,
+                    account,
                     ctx,
                 )
                 .await,
