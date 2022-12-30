@@ -104,7 +104,7 @@ async fn create_response<'a>(
                 CreateEmbed::new()
                     .title("Bill created")
                     .description(format!(
-                        "Bill for {} totalling {:.2} created by {} on {} to be paid into `{}`",
+                        "Bill for {} totalling ${:.2} created by {} on {} to be paid into `{}`",
                         purpose,
                         total,
                         user,

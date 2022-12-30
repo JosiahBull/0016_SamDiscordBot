@@ -22,6 +22,11 @@ pub struct Flatmate<'a> {
 // TODO: load this from env
 pub const FLATMATES: &[Flatmate<'static>] = &[
     Flatmate {
+        discord_id: 338108076458770444,
+        name: "sam",
+        display_name: "Sam",
+    },
+    Flatmate {
         discord_id: 204544796033941515,
         name: "jo",
         display_name: "Jo",
@@ -30,11 +35,6 @@ pub const FLATMATES: &[Flatmate<'static>] = &[
         discord_id: 461281958547161118,
         name: "bex",
         display_name: "Bex",
-    },
-    Flatmate {
-        discord_id: 338108076458770444,
-        name: "sam",
-        display_name: "Sam",
     },
     Flatmate {
         discord_id: 187085887312494595,
@@ -128,7 +128,7 @@ pub struct AppState {
     pub google_api: Arc<RwLock<GoogleMapsApiHandle>>,
     pub trademe_api: Arc<RwLock<TrademeApiHandle>>,
 
-    database: Arc<DatabaseConnection>,
+    pub database: Arc<DatabaseConnection>,
 }
 
 impl AppState {

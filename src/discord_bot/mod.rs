@@ -3,6 +3,7 @@
 
 mod commands;
 mod common;
+mod database;
 mod filters;
 mod guilds;
 mod handler;

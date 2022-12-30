@@ -35,8 +35,8 @@ impl<'a> Command<'a> for DistanceCommand {
         "calculate distances from here to major locations, in minutes - utilises the google maps api"
     }
 
-    fn get_application_command_options(i: CreateCommand) -> CreateCommand {
-        i.add_option(
+    fn get_application_command_options(cmd: CreateCommand) -> CreateCommand {
+        cmd.add_option(
             CreateCommandOption::new(
                 CommandOptionType::String,
                 "address",
