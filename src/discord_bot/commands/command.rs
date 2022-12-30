@@ -13,6 +13,7 @@ use crate::{
         pay::{PayAllCommand, PayCommand},
         ping::PingCommand,
         say::SayCommand,
+        shop::Shop,
     },
     state::AppState,
 };
@@ -167,7 +168,8 @@ pub fn application_command() -> Vec<CreateCommand> {
         SayCommand,
         DistanceCommand,
         PayCommand,
-        PayAllCommand
+        PayAllCommand,
+        Shop
     );
     base
 }
@@ -186,7 +188,8 @@ pub async fn command<'a>(
         SayCommand,
         DistanceCommand,
         PayCommand,
-        PayAllCommand
+        PayAllCommand,
+        Shop
     )
 }
 

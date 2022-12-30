@@ -128,7 +128,7 @@ pub struct AppState {
     pub google_api: Arc<RwLock<GoogleMapsApiHandle>>,
     pub trademe_api: Arc<RwLock<TrademeApiHandle>>,
 
-    database: Arc<DatabaseConnection>,
+    pub database: Arc<DatabaseConnection>,
 }
 
 impl AppState {

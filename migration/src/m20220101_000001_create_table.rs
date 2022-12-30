@@ -21,6 +21,7 @@ enum List {
     CreatedBy,
     CreatedAt,
     OriginalListMessageId,
+    Bought,
     ItemMessageIds,
     Items,
     ItemAmounts,
@@ -58,14 +59,12 @@ impl MigrationTrait for Migration {
                     )
                     .col(
                         ColumnDef::new(Payment::IndividualUsers)
-                            .array(ColumnType::BigInteger(None))
-                            .default(Vec::with_capacity(0))
+                            .array(ColumnType::BigUnsigned(None))
                             .not_null(),
                     )
                     .col(
                         ColumnDef::new(Payment::IndividualAmounts)
                             .array(ColumnType::BigInteger(None))
-                            .default(Vec::with_capacity(0))
                             .not_null(),
                     )
                     .col(ColumnDef::new(Payment::ImagePath).string().not_null())
@@ -93,22 +92,20 @@ impl MigrationTrait for Migration {
                             .big_integer()
                             .not_null(),
                     )
+                    .col(ColumnDef::new(List::Bought).boolean().not_null())
                     .col(
                         ColumnDef::new(List::ItemMessageIds)
-                            .array(ColumnType::BigInteger(None))
-                            .default(Vec::with_capacity(0))
+                            .array(ColumnType::BigUnsigned(None))
                             .not_null(),
                     )
                     .col(
                         ColumnDef::new(List::Items)
                             .array(ColumnType::String(None))
-                            .default(Vec::with_capacity(0))
                             .not_null(),
                     )
                     .col(
                         ColumnDef::new(List::ItemAmounts)
                             .array(ColumnType::BigInteger(None))
-                            .default(Vec::with_capacity(0))
                             .not_null(),
                     )
                     .to_owned(),

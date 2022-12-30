@@ -1,0 +1,64 @@
+version: "3.3"
+
+networks:
+  tombot_backend:
+    name: tombot_backend
+    ipam:
+      config:
+        - subnet: 10.10.0.0/24
+          gateway: 10.10.0.1
+
+services:
+  postgres:
+    restart: unless-stopped
+    image: postgres
+    volumes:
+      - "./data:/var/lib/postgresql/data"
+    environment:
+      - POSTGRES_USER=tombot
+      - POSTGRES_PASSWORD=tombot
+      - POSTGRES_DB=tombot
+    networks:
+      tombot_backend:
+        ipv4_address: 10.10.0.2
+    ports:
+      - 5432:5432
+
+  geckodriver:
+    build: ./gecko
+    container_name: geckodriver
+    restart: always
+    ports:
+      - 4444:4444
+    environment:
+      - TZ="Pacific/Auckland"
+    networks:
+      tombot_backend:
+        ipv4_address: 10.10.0.4
+
+  tombot:
+    build: .
+    container_name: tombot
+    depends_on:
+      - geckodriver
+      - postgres
+    restart: always
+    environment:
+      - DISCORD_TOKEN
+      - GOOGLE_MAPS_TOKEN
+      - GECKO_DRIVER=http://10.10.0.4:4444/
+      - TZ="Pacific/Auckland"
+      - DATABASE_URL=postgres://tombot:tombot@postgres:5432/tombot #TODO: move this into a .env file
+    networks:
+      tombot_backend:
+        ipv4_address: 10.10.0.3
+
+  autoheal:
+    restart: unless-stopped
+    image: willfarrell/autoheal
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - tombot

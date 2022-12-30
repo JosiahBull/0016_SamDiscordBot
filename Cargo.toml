@@ -23,7 +23,7 @@ fantoccini = "0.19.3"
 # database
 entity = { path = "entity" }
 migration = { path = "migration" }
-sea-orm = { version = "0.10.6", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros" ] }
+sea-orm = { version = "0.10.6", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros", "postgres-array" ] }
 
 [workspace]
 members = [
