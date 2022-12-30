@@ -1,4 +1,3 @@
-mod database;
 mod discord_bot;
 mod google_api;
 mod trademe_api;
@@ -21,37 +20,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     dotenv().ok();
 
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let discord_token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
     let google_maps_token =
         std::env::var("GOOGLE_MAPS_TOKEN").expect("GOOGLE_MAPS_TOKEN must be set");
     let geckodriver_url = std::env::var("GECKO_DRIVER").expect("GECKO_DRIVER must be set");
 
-    let state = AppState::new();
-
     info!("spawning google maps handler");
-    let mut google_maps_state = state.clone();
-    let google_maps_handler = tokio::spawn(async move {
-        let mut google_maps_handler = GoogleMapsApi::builder().key(google_maps_token).build();
-
-        google_maps_state.set_google_api(google_maps_handler.handle());
-
-        google_maps_handler.run().await;
+    let mut google_maps_api_handler = GoogleMapsApi::builder().key(google_maps_token).build();
+    let google_maps_api_handle = google_maps_api_handler.handle();
+    let google_maps_thread_handle = tokio::spawn(async move {
+        google_maps_api_handler.run().await;
     });
 
     info!("spawning trademe handler");
-    let mut tradme_state = state.clone();
-    let trademe_handler = tokio::spawn(async move {
-        let mut trademe_handler = TrademeApi::builder()
-            .gecko_driver_url(geckodriver_url)
-            .build()
-            .await;
-        tradme_state.set_tradme_api(trademe_handler.handle());
-
-        trademe_handler.run().await;
+    let mut trademe_api_handler = TrademeApi::builder()
+        .gecko_driver_url(geckodriver_url)
+        .build()
+        .await;
+    let trademe_api_handle = trademe_api_handler.handle();
+    let trademe_thread_handle = tokio::spawn(async move {
+        trademe_api_handler.run().await;
     });
 
-    // let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    // let db_handle = database::DatabaseHandle::connect(db_url).await?;
+    let state = AppState::new(database_url, google_maps_api_handle, trademe_api_handle).await?;
 
     info!("spawning discord handler");
     let discord_state = state.clone();
@@ -78,7 +70,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     tokio::pin!(discord_handle);
-    tokio::pin!(google_maps_handler);
+    tokio::pin!(google_maps_thread_handle);
+    tokio::pin!(trademe_thread_handle);
 
     loop {
         tokio::select! {
@@ -93,12 +86,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 break;
             }
 
-            _ = google_maps_handler => {
+            _ = google_maps_thread_handle => {
                 info!("google maps handler shut down");
                 break;
             }
 
-            _ = trademe_handler => {
+            _ = trademe_thread_handle => {
                 info!("trademe handler shut down");
                 break;
             }
