@@ -1,4 +1,4 @@
-version: '3.3'
+version: "3.3"
 
 services:
   geckodriver:
@@ -13,11 +13,25 @@ services:
       tombot_backend:
         ipv4_address: 10.10.0.3
 
+  postgres:
+    restart: unless-stopped
+    image: postgres
+    volumes:
+      - "./data:/var/lib/postgresql/data"
+    environment:
+      - POSTGRES_USER=tombot
+      - POSTGRES_PASSWORD=tombot
+      - POSTGRES_DB=tombot
+    networks:
+      tombot_backend:
+        ipv4_address: 10.10.0.2
+
   tombot:
     image: ghcr.io/***REMOVED***siahbull/tombot:main
     container_name: tombot
     depends_on:
       - geckodriver
+      - postgres
     restart: always
     environment:
       - DISCORD_TOKEN
@@ -27,10 +41,21 @@ services:
     networks:
       tombot_backend:
         ipv4_address: 10.10.0.2
+
+  autoheal:
+    restart: unless-stopped
+    image: willfarrell/autoheal
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - tombot
+
 networks:
   tombot_backend:
     name: tombot_backend
     ipam:
       config:
-       - subnet: 10.10.0.0/24
-         gateway: 10.10.0.1
+        - subnet: 10.10.0.0/24
+          gateway: 10.10.0.1

@@ -20,9 +20,13 @@ serde = { version = "1.0.145", features = ["derive"] }
 serde_json = "1.0.87"
 fantoccini = "0.19.3"
 
-sea-orm = { version = "0.9.2", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros" ] }
+# database
+entity = { path = "entity" }
+migration = { path = "migration" }
+sea-orm = { version = "0.10.6", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros" ] }
 
 [workspace]
 members = [
     "migration",
+    "entity"
 ]

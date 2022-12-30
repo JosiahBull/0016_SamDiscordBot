@@ -22,9 +22,12 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 COPY --from=builder /app/target/release/tom_bot /app/
 COPY --from=builder /app/assets/* /app/assets/
+COPY --from=builder /app/scripts/* /app/scripts/
 
 RUN apt-get update
 RUN apt-get install ca-certificates -y
 RUN apt-get clean
 
-CMD [ "/app/tom_bot" ]
+# HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "executable" ] #TODO
+
+CMD [ "./scripts/wait-for-postgres.sh", "/app/tom_bot" ]

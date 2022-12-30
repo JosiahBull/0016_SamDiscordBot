@@ -25,6 +25,12 @@ repos:
         types: [file, rust]
         language: system
 
+-   repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: 'v0.32.2'
+    hooks:
+    -   id: markdownlint-fix
+        args: ['--fix']
+
 -   repo: local
     hooks:
     -   id: run-tests
@@ -33,9 +39,3 @@ repos:
         language: system
         types: [file, rust]
         pass_filenames: false
-
--   repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: 'v0.32.2'
-    hooks:
-    -   id: markdownlint-fix
-        args: ['--fix']
