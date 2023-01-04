@@ -22,6 +22,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN apt-get update && apt-get upgrade -y
 RUN apt-get install -y ca-certificates postgresql
+RUN curl -sSL https://get.docker.com/ | sh
 RUN apt-get clean
 
 COPY --from=builder /app/target/release/tom_bot /app/

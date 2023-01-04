@@ -4,7 +4,8 @@ use serenity::{
     async_trait,
     builder::{
         CreateCommand, CreateCommandOption, CreateInteractionResponse,
-        CreateInteractionResponseMessage, EditInteractionResponse,
+        CreateInteractionResponseFollowup, CreateInteractionResponseMessage,
+        EditInteractionResponse,
     },
     prelude::Context,
 };
@@ -58,7 +59,7 @@ impl<'a> Command<'a> for DistanceCommand {
         interaction
             .create_response(
                 &ctx,
-                CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()),
+                CreateInteractionResponse::Defer(CreateInteractionResponseMessage::new()),
             )
             .await
             .map_err(|e| CommandResponse::ComplexFailure {
@@ -92,7 +93,7 @@ impl<'a> Command<'a> for DistanceCommand {
         let data = data.unwrap();
 
         if let Err(e) = interaction
-            .edit_response(&ctx, EditInteractionResponse::new().embed(data).content(""))
+            .create_followup(&ctx, CreateInteractionResponseFollowup::new().embed(data))
             .await
         {
             error!("Failed to return embed: {}", e);

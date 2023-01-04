@@ -38,6 +38,8 @@ services:
       - GOOGLE_MAPS_TOKEN
       - GECKO_DRIVER=http://10.10.0.3:4444/
       - TZ="Pacific/Auckland"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       tombot_backend:
         ipv4_address: 10.10.0.2

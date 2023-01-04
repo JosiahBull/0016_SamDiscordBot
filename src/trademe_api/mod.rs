@@ -1,4 +1,5 @@
 use fantoccini::{Client, ClientBuilder};
+use log::error;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -56,11 +57,37 @@ impl TrademeApiBuilder {
             json!({"args": ["-headless"], "prefs": {"permissions.default.image": 2}}),
         );
 
-        let client = ClientBuilder::native()
-            .capabilities(caps)
-            .connect(self.gecko_driver_url.as_ref().unwrap())
-            .await
-            .expect("failed to build `ClientBuilder`");
+        let mut attempts = 0;
+        let client;
+        loop {
+            let temp_client = ClientBuilder::native()
+                .capabilities(caps.clone())
+                .connect(self.gecko_driver_url.as_ref().unwrap())
+                .await;
+
+            if let Ok(c) = temp_client {
+                client = c;
+                break;
+            }
+
+            if attempts > 5 {
+                panic!("Failed to connect to geckodriver");
+            }
+
+            // use docker command to restart the `geckodriver` container
+            tokio::process::Command::new("docker")
+                .arg("restart")
+                .arg("geckodriver")
+                .output()
+                .await
+                .expect("Failed to restart geckodriver container");
+
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+            error!("Failed to connect to geckodriver. Retrying...");
+
+            attempts += 1;
+        }
 
         TrademeApi {
             client,
