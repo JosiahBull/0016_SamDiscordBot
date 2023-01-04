@@ -16,7 +16,10 @@ use serenity::{
     prelude::Context,
 };
 
-use crate::state::{AppState, Flatmate, FLATMATES, HEAD_TENANT_ACC_NUMBER, PHRASES};
+use crate::{
+    discord_bot::common::embed::EmbedColor,
+    state::{AppState, Flatmate, FLATMATES, HEAD_TENANT_ACC_NUMBER, PHRASES},
+};
 
 use super::{
     command::{AutocompleteCommand, Command, InteractionCommand},
@@ -112,7 +115,7 @@ async fn create_response<'a>(
                         chrono::offset::Local::now().format("%d/%m/%y at %I:%M%P"),
                         account
                     ))
-                    .color(0xFF0000)
+                    .color(EmbedColor::Red as u32)
                     .fields({
                         let mut fields: Vec<(String, String, bool)> =
                             Vec::with_capacity(amounts.len());
@@ -310,7 +313,7 @@ impl<'a> Command<'a> for PayCommand {
 
 #[async_trait]
 impl<'a> InteractionCommand<'a> for PayCommand {
-    fn answerable<'b>(
+    async fn answerable<'b>(
         interaction: &'b ComponentInteraction,
         _: &'b AppState,
         _: &'b Context,
@@ -408,9 +411,9 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                         })
                         .color({
                             if all_set == message.embeds[0].fields.len() {
-                                0x00FF00
+                                EmbedColor::Green as u32
                             } else {
-                                0xFF0000
+                                EmbedColor::Red as u32
                             }
                         }),
                 ),

@@ -59,7 +59,7 @@ pub trait AutocompleteCommand<'a>: Command<'a> {
 #[async_trait]
 pub trait InteractionCommand<'a>: Command<'a> {
     /// validate if this message is related to a given command
-    fn answerable<'b>(
+    async fn answerable<'b>(
         interaction: &'b ComponentInteraction,
         app_state: &'b AppState,
         context: &'b Context,
@@ -150,7 +150,7 @@ macro_rules! interaction {
             fn assert_interaction<'a, T: InteractionCommand<'a, Error=String>>() {}
             $(
                 assert_interaction::<$x>();
-                if <$x>::answerable($cmd, $state, $context) {
+                if <$x>::answerable($cmd, $state, $context).await {
                     return <$x>::interaction($cmd, $state, $context).await
                 }
             )*
@@ -169,7 +169,8 @@ pub fn application_command() -> Vec<CreateCommand> {
         DistanceCommand,
         PayCommand,
         PayAllCommand,
-        Shop
+        Shop,
+        // ShoppingList
     );
     base
 }
@@ -189,7 +190,8 @@ pub async fn command<'a>(
         DistanceCommand,
         PayCommand,
         PayAllCommand,
-        Shop
+        Shop,
+        // ShoppingList
     )
 }
 
@@ -199,7 +201,7 @@ pub async fn autocomplete<'a>(
     app_state: &'a AppState,
     context: &'a Context,
 ) -> Result<CreateAutocompleteResponse, CommandResponse> {
-    autocomplete!(command, app_state, context, PayCommand, PayAllCommand)
+    autocomplete!(command, app_state, context, PayCommand, PayAllCommand, Shop)
 }
 
 pub async fn interaction<'a>(
@@ -208,9 +210,8 @@ pub async fn interaction<'a>(
     context: &'a Context,
 ) -> Result<CommandResponse, CommandResponse> {
     interaction!(
-        command,
-        app_state,
-        context,
-        PayCommand, // also handles PayAllCommand
+        command, app_state, context, PayCommand, // also handles PayAllCommand
+        Shop,
+        // ShoppingList
     )
 }

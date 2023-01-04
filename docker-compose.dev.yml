@@ -49,6 +49,9 @@ services:
       - GECKO_DRIVER=http://10.10.0.4:4444/
       - TZ="Pacific/Auckland"
       - DATABASE_URL=postgres://tombot:tombot@postgres:5432/tombot #TODO: move this into a .env file
+      - RUST_BACKTRACE=full
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       tombot_backend:
         ipv4_address: 10.10.0.3

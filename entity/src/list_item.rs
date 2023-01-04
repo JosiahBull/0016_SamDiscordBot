@@ -7,30 +7,38 @@ pub struct Entity;
 
 impl EntityName for Entity {
     fn table_name(&self) -> &str {
-        "list"
+        "list_item"
     }
 }
 
 #[derive(Clone, Debug, PartialEq, DeriveModel, DeriveActiveModel, Eq)]
 pub struct Model {
     pub id: i32,
-    pub name: String,
-    pub created_by: i64,
+    pub list_id: i32,
+    pub message_id: i64,
+    pub user_id: i64,
     pub created_at: DateTime,
-    pub creation_message_id: i64,
-    pub creation_message_channel_id: i64,
-    pub creation_message_guild_id: Option<i64>,
+    pub bought: bool,
+    pub item: String,
+    pub quantity: i64,
+    pub personal: bool,
+    pub store: Option<String>,
+    pub notes: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveColumn)]
 pub enum Column {
     Id,
-    Name,
-    CreatedBy,
+    ListId,
+    MessageId,
+    UserId,
     CreatedAt,
-    CreationMessageId,
-    CreationMessageChannelId,
-    CreationMessageGuildId,
+    Bought,
+    Item,
+    Quantity,
+    Personal,
+    Store,
+    Notes,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DerivePrimaryKey)]
@@ -47,7 +55,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
-    ListItem,
+    List,
 }
 
 impl ColumnTrait for Column {
@@ -55,12 +63,16 @@ impl ColumnTrait for Column {
     fn def(&self) -> ColumnDef {
         match self {
             Self::Id => ColumnType::Integer.def(),
-            Self::Name => ColumnType::String(None).def(),
-            Self::CreatedBy => ColumnType::BigInteger.def(),
+            Self::ListId => ColumnType::Integer.def(),
+            Self::MessageId => ColumnType::BigInteger.def(),
+            Self::UserId => ColumnType::BigInteger.def(),
             Self::CreatedAt => ColumnType::DateTime.def(),
-            Self::CreationMessageId => ColumnType::BigInteger.def(),
-            Self::CreationMessageChannelId => ColumnType::BigInteger.def(),
-            Self::CreationMessageGuildId => ColumnType::BigInteger.def().null(),
+            Self::Bought => ColumnType::Boolean.def(),
+            Self::Item => ColumnType::String(None).def(),
+            Self::Quantity => ColumnType::BigInteger.def(),
+            Self::Personal => ColumnType::Boolean.def(),
+            Self::Store => ColumnType::String(None).def().null(),
+            Self::Notes => ColumnType::String(None).def().null(),
         }
     }
 }
@@ -68,14 +80,17 @@ impl ColumnTrait for Column {
 impl RelationTrait for Relation {
     fn def(&self) -> RelationDef {
         match self {
-            Self::ListItem => Entity::has_many(super::list_item::Entity).into(),
+            Self::List => Entity::belongs_to(super::list::Entity)
+                .from(Column::ListId)
+                .to(super::list::Column::Id)
+                .into(),
         }
     }
 }
 
-impl Related<super::list_item::Entity> for Entity {
+impl Related<super::list::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::ListItem.def()
+        Relation::List.def()
     }
 }
 
