@@ -5,7 +5,6 @@ mod trademe_api;
 mod logging;
 mod state;
 
-use dotenv::dotenv;
 use log::{error, info};
 use std::process::exit;
 
@@ -18,9 +17,14 @@ use crate::{
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     configure_logger()?;
 
-    dotenv().ok();
-
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let database_url = format!(
+        "postgres://{}:{}@{}:{}/{}",
+        std::env::var("POSTGRES_USER").expect("POSTGRES_USER must be set"),
+        std::env::var("POSTGRES_PASS").expect("POSTGRES_PASSWORD must be set"),
+        std::env::var("POSTGRES_HOST").expect("POSTGRES_HOST must be set"),
+        std::env::var("POSTGRES_PORT").expect("POSTGRES_PORT must be set"),
+        std::env::var("POSTGRES_DB").expect("POSTGRES_DB must be set")
+    );
     let discord_token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
     let google_maps_token =
         std::env::var("GOOGLE_MAPS_TOKEN").expect("GOOGLE_MAPS_TOKEN must be set");

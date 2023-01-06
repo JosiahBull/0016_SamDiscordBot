@@ -18,7 +18,7 @@ use serenity::{
 
 use crate::{
     discord_bot::common::embed::EmbedColor,
-    state::{AppState, Flatmate, FLATMATES, HEAD_TENANT_ACC_NUMBER, PHRASES},
+    state::{AppState, Flatmate, CONFIG},
 };
 
 use super::{
@@ -54,7 +54,11 @@ async fn handle_autocomplete_for_pay<'c>(
                 },
             ]);
         }
-        i if FLATMATES.iter().any(|f| f.name.to_ascii_lowercase() == *i) => {
+        i if CONFIG
+            .flatmates
+            .iter()
+            .any(|f| f.name.to_ascii_lowercase() == *i) =>
+        {
             // load all previous values that have been entered as options, and use those as the options for payment
             // this will allow for easy re-use of values
 
@@ -75,7 +79,7 @@ async fn handle_autocomplete_for_pay<'c>(
                             // check if existing num is in the list of options
                             if !existing_options.contains(&num_str) {
                                 response = response
-                                    .add_number_choice(format!("***REMOVED***e as {} ({:.2})", i, num), num);
+                                    .add_number_choice(format!("Same as {} ({:.2})", i, num), num);
                                 existing_options.insert(num_str);
                             }
                         }
@@ -98,7 +102,7 @@ async fn create_response<'a>(
     user: &str,
     receipt: &str,
     total: f64,
-    amounts: Vec<(&Flatmate<'a>, f64)>,
+    amounts: Vec<(&Flatmate, f64)>,
     account: &str,
     ctx: &Context,
 ) -> CreateInteractionResponse {
@@ -135,7 +139,7 @@ async fn create_response<'a>(
                     })
                     .footer(CreateEmbedFooter::new(format!(
                         "\n{}",
-                        PHRASES[rand::random::<usize>() % PHRASES.len()]
+                        CONFIG.phrases[rand::random::<usize>() % CONFIG.phrases.len()]
                     ))),
             )
             .add_file(CreateAttachment::url(ctx, receipt).await.unwrap()) //XXX: handle error
@@ -194,7 +198,7 @@ impl<'a> Command<'a> for PayCommand {
                 .required(true),
             );
 
-        for flatmate in FLATMATES.iter() {
+        for flatmate in CONFIG.flatmates.iter() {
             cmd = cmd.add_option(
                 CreateCommandOption::new(
                     CommandOptionType::Number,
@@ -228,8 +232,8 @@ impl<'a> Command<'a> for PayCommand {
         let mut purpose: Option<&str> = None;
         let mut receipt: Option<&Attachment> = None;
         let mut amount = 0.0;
-        let mut amounts: Vec<(&Flatmate, f64)> = Vec::with_capacity(FLATMATES.len());
-        let mut account = HEAD_TENANT_ACC_NUMBER;
+        let mut amounts: Vec<(&Flatmate, f64)> = Vec::with_capacity(CONFIG.flatmates.len());
+        let mut account = CONFIG.head_tennant_acc_number.as_ref();
 
         for option in options.iter() {
             match option.name {
@@ -265,7 +269,10 @@ impl<'a> Command<'a> for PayCommand {
 
                     if let ResolvedValue::Number(value) = option.value {
                         amount += value;
-                        amounts.push((FLATMATES.iter().find(|f| f.name == name).unwrap(), value));
+                        amounts.push((
+                            CONFIG.flatmates.iter().find(|f| f.name == name).unwrap(),
+                            value,
+                        ));
                     } else {
                         return Err(CommandResponse::InternalFailure(
                             "Failed to parse amount as a number".to_string(),
@@ -339,7 +346,8 @@ impl<'a> InteractionCommand<'a> for PayCommand {
         }
 
         let user: u64 = interaction.user.id.into();
-        let user: Option<&Flatmate> = FLATMATES
+        let user: Option<&Flatmate> = CONFIG
+            .flatmates
             .iter()
             .find(|flatmate| flatmate.discord_id == user);
 
@@ -385,7 +393,7 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                                 if field.name.contains("paid") {
                                     all_set += 1;
                                 }
-                                if field.name.to_lowercase().contains(user.name)
+                                if field.name.to_lowercase().contains(&user.name)
                                     && field.name.contains("pay")
                                 {
                                     fields.push((
@@ -523,7 +531,7 @@ impl<'a> Command<'a> for PayAllCommand {
         let mut purpose: Option<&str> = None;
         let mut receipt: Option<&Attachment> = None;
         let mut amount: Option<f64> = None;
-        let mut account: &str = HEAD_TENANT_ACC_NUMBER;
+        let mut account: &str = &CONFIG.head_tennant_acc_number;
 
         for option in options.iter() {
             match option.name {
@@ -582,9 +590,9 @@ impl<'a> Command<'a> for PayAllCommand {
         let receipt = receipt.unwrap();
 
         // parse response and create message
-        let mut amounts: Vec<(&Flatmate<'_>, f64)> = Vec::with_capacity(FLATMATES.len());
-        let individual = amount / FLATMATES.len() as f64;
-        for flatmate in FLATMATES {
+        let mut amounts: Vec<(&Flatmate, f64)> = Vec::with_capacity(CONFIG.flatmates.len());
+        let individual = amount / CONFIG.flatmates.len() as f64;
+        for flatmate in CONFIG.flatmates.iter() {
             amounts.push((flatmate, individual));
         }
 

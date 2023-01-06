@@ -1,8 +1,27 @@
 version: "3.3"
 
+networks:
+  tombot_backend:
+    name: tombot_backend
+    ipam:
+      config:
+        - subnet: 10.10.0.0/24
+          gateway: 10.10.0.1
 services:
+  postgres:
+    restart: unless-stopped
+    image: postgres
+    volumes:
+      - "./data:/var/lib/postgresql/data"
+    environment:
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB=tombot
+    networks:
+      tombot_backend:
+        ipv4_address: 10.10.0.2
   geckodriver:
-    build: ./gecko
+    image: ghcr.io/josiahbull/tombot-gecko-driver:main
     container_name: geckodriver
     restart: always
     ports:
@@ -11,23 +30,10 @@ services:
       - TZ="Pacific/Auckland"
     networks:
       tombot_backend:
-        ipv4_address: 10.10.0.3
-
-  postgres:
-    restart: unless-stopped
-    image: postgres
-    volumes:
-      - "./data:/var/lib/postgresql/data"
-    environment:
-      - POSTGRES_USER=tombot
-      - POSTGRES_PASSWORD=tombot
-      - POSTGRES_DB=tombot
-    networks:
-      tombot_backend:
-        ipv4_address: 10.10.0.2
+        ipv4_address: 10.10.0.4
 
   tombot:
-    image: ghcr.io/***REMOVED***siahbull/tombot:main
+    image: ghcr.io/josiahbull/tombot:main
     container_name: tombot
     depends_on:
       - geckodriver
@@ -36,13 +42,19 @@ services:
     environment:
       - DISCORD_TOKEN
       - GOOGLE_MAPS_TOKEN
-      - GECKO_DRIVER=http://10.10.0.3:4444/
-      - TZ="Pacific/Auckland"
+      - POSTGRES_USER
+      - POSTGRES_PASS
+      - TZ
+      - GECKO_DRIVER=http://10.10.0.4:4444/
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=tombot
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./config.toml:/app/config.toml
     networks:
       tombot_backend:
-        ipv4_address: 10.10.0.2
+        ipv4_address: 10.10.0.3
 
   autoheal:
     restart: unless-stopped
@@ -53,11 +65,3 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - tombot
-
-networks:
-  tombot_backend:
-    name: tombot_backend
-    ipam:
-      config:
-        - subnet: 10.10.0.0/24
-          gateway: 10.10.0.1

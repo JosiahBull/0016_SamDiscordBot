@@ -2,21 +2,8 @@ use serenity::builder::{CreateEmbed, CreateEmbedFooter};
 
 use crate::{
     google_api::maps::GoogleMapsData,
-    state::{AppState, PHRASES},
+    state::{AppState, CONFIG},
 };
-
-pub const DESTINATIONS: &[[&str; 2]] = &[
-    ["UoA", "University of Auckland"],
-    [
-        "Massey",
-        "***REMOVED***",
-    ],
-    [
-        "Zerojet",
-        "***REMOVED***",
-    ],
-    ["Crown", "***REMOVED***"],
-];
 
 pub async fn load_maps_data_to_embed(
     address: String,
@@ -28,7 +15,7 @@ pub async fn load_maps_data_to_embed(
     // make a global request for the address
     state
         .maps_api()
-        .add_to_queue(address, DESTINATIONS, tx)
+        .add_to_queue(address, &CONFIG.destinations, tx)
         .await;
 
     // wait for the oneshot channel to return (maximum of 20 seconds)
@@ -40,7 +27,7 @@ pub async fn load_maps_data_to_embed(
     let mut embed = embed
         .title(&data.origin_addresses[0])
         .footer(
-            CreateEmbedFooter::new(PHRASES[rand::random::<usize>() % PHRASES.len()])
+            CreateEmbedFooter::new(&CONFIG.phrases[rand::random::<usize>() % CONFIG.phrases.len()])
                 .icon_url("https://cdn.iconscout.com/icon/free/png-256/google-map-461800.png"),
         )
         .color(0x4285F4);
@@ -48,7 +35,7 @@ pub async fn load_maps_data_to_embed(
     for row in data.rows.iter() {
         for (i, element) in row.elements.iter().enumerate() {
             embed = embed.field(
-                DESTINATIONS[i][0],
+                &CONFIG.destinations[i].label,
                 format!("{} ({})", element.distance.text, element.duration.text),
                 true,
             );

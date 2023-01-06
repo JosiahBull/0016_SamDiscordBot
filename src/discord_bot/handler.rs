@@ -59,7 +59,7 @@ impl EventHandler for Handler {
     }
 
     async fn guild_member_addition(&self, _ctx: Context, _new_member: Member) {
-        warn!("New member ***REMOVED***ined, handler function not yet implemented");
+        warn!("New member joined, handler function not yet implemented");
         // todo!() //TODO: use this to readd a users roles if they have previously been verified
     }
 

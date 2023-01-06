@@ -14,7 +14,7 @@ use tokio::{
     select,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
     sync::RwLock,
-    task::***REMOVED***inHandle,
+    task::JoinHandle,
 };
 
 use super::manager::{DiscordEvent, InternalSender};
@@ -108,7 +108,7 @@ pub struct GuildHandler {
     /// the user_id of the bot
     bot_user_id: u64,
     /// a handle to the internal task managing the guild once started
-    handle: Option<***REMOVED***inHandle<()>>,
+    handle: Option<JoinHandle<()>>,
     /// the receiving end of the internal communication channel
     internal_rx: Arc<RwLock<UnboundedReceiver<DiscordEvent>>>,
     /// the sending end of the internal communication channel
@@ -160,7 +160,7 @@ impl GuildHandler {
     }
 
     /// begin monitoring a guild for interaction.
-    /// note that it is important to not have multiple handlers for the ***REMOVED***e guild.
+    /// note that it is important to not have multiple handlers for the same guild.
     pub fn start(&mut self) {
         if self.handle.is_none() {
             let guild = self.guild_id;

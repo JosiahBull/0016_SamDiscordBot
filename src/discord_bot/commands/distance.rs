@@ -33,7 +33,7 @@ impl<'a> Command<'a> for DistanceCommand {
     }
 
     fn description() -> &'static str {
-        "calculate distances from here to ma***REMOVED***r locations, in minutes - utilises the google maps api"
+        "calculate distances from here to major locations, in minutes - utilises the google maps api"
     }
 
     fn get_application_command_options(cmd: CreateCommand) -> CreateCommand {

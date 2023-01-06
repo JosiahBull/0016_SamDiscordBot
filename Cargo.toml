@@ -2,14 +2,12 @@
 name = "tom_bot"
 version = "0.1.0"
 edition = "2021"
-authors = ["***REMOVED***siah Bull <***REMOVED***siah.bull7@gmail.com>"]
+authors = ["Josiah Bull <josiah.bull7@gmail.com>"]
 
 [dependencies]
 chrono = { version = "0.4.23", features = ["clock"]}
-log = "0.4.17"
-fern = "0.6.1"
 
-dotenv = "0.15.0"
+rand = "0.8.5"
 
 tokio = { version = "1", features = ["full"] }
 serenity = { git="https://github.com/serenity-rs/serenity", branch="next", default-features = false, features = ["full"] }
@@ -24,6 +22,14 @@ fantoccini = "0.19.3"
 entity = { path = "entity" }
 migration = { path = "migration" }
 sea-orm = { version = "0.10.6", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros", "postgres-array" ] }
+
+# config
+lazy_static = "1.4.0"
+toml = "0.5.10"
+
+# logging
+log = "0.4.17"
+fern = "0.6.1"
 
 [workspace]
 members = [

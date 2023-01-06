@@ -5,6 +5,8 @@ use reqwest::Client;
 use serde::Deserialize;
 use tokio::sync::mpsc::{Receiver, Sender};
 
+use crate::state::Destination;
+
 const API_URL: &str = "https://maps.googleapis.com/maps/api/distancematrix/json";
 
 pub type GoogleMapApiResponse = Result<GoogleMapsData, GoogleMapError>;
@@ -64,8 +66,8 @@ pub struct GoogleMapsDuration {
 
 #[derive(Debug)]
 struct GoogleMapsRequest {
-    origin: String, //XXX: would be nice to have this borrowed too
-    destinations: &'static [[&'static str; 2]],
+    origin: String,
+    destinations: Vec<Destination>,
     sender: tokio::sync::oneshot::Sender<GoogleMapApiResponse>,
 }
 
@@ -114,7 +116,7 @@ impl GoogleMapsApi {
     async fn get_distance(
         &mut self,
         origin: &str,
-        destinations: &[[&str; 2]],
+        destinations: Vec<Destination>,
     ) -> GoogleMapApiResponse {
         //TODO create a check to see if this request has previously been processed
 
@@ -135,10 +137,10 @@ impl GoogleMapsApi {
             url.push_str("&destinations=");
             url.push_str(
                 &destinations
-                    .iter()
-                    .map(|x| x[1])
-                    .collect::<Vec<&str>>()
-                    .***REMOVED***in("|"),
+                    .into_iter()
+                    .map(|x| x.address)
+                    .collect::<Vec<String>>()
+                    .join("|"),
             );
             url
         };
@@ -202,13 +204,13 @@ impl GoogleMapsApiHandle {
     pub async fn add_to_queue(
         &self,
         origin: String,
-        destinations: &'static [[&'static str; 2]],
+        destinations: &[Destination],
         return_channel: tokio::sync::oneshot::Sender<GoogleMapApiResponse>,
     ) {
         self.internal_sender
             .send(GoogleMapsRequest {
                 origin,
-                destinations,
+                destinations: destinations.to_vec(),
                 sender: return_channel,
             })
             .await
