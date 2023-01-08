@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    sync::{Arc, RwLock},
+    sync::{atomic::AtomicU64, Arc, RwLock},
     time::Duration,
 };
 
@@ -48,6 +48,9 @@ pub struct AppState {
     pub trademe_api: Arc<RwLock<TrademeApiHandle>>,
 
     pub database: Arc<DatabaseConnection>,
+
+    pub start_time: std::time::Instant,
+    pub num_connected: Arc<AtomicU64>,
 }
 
 impl AppState {
@@ -81,6 +84,9 @@ impl AppState {
             trademe_api: Arc::new(RwLock::new(trademe_api)),
 
             database: Arc::new(connection),
+
+            start_time: std::time::Instant::now(),
+            num_connected: Arc::new(AtomicU64::new(0)),
         })
     }
 
@@ -106,6 +112,9 @@ impl Clone for AppState {
             trademe_api: self.trademe_api.clone(),
 
             database: self.database.clone(),
+
+            start_time: self.start_time,
+            num_connected: self.num_connected.clone(),
         }
     }
 }

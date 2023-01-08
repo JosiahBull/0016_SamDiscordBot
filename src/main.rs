@@ -2,6 +2,8 @@ mod discord_bot;
 mod google_api;
 mod trademe_api;
 
+mod healthcheck;
+
 mod logging;
 mod state;
 
@@ -73,9 +75,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("discord bot shut down");
     });
 
+    info!("creating healthcheck server");
+    let healthcheck_state = state.clone();
+    let healthcheck_handle = tokio::task::spawn(async move {
+        let builder = healthcheck::Healthcheck::builder()
+            .state(healthcheck_state)
+            .build();
+
+        let mut server = match builder.await {
+            Ok(server) => server,
+            Err(e) => {
+                error!("failed to build healthcheck server: {}", e);
+                return;
+            }
+        };
+
+        server.run().await;
+
+        info!("healthcheck server shut down");
+    });
+
     tokio::pin!(discord_handle);
     tokio::pin!(google_maps_thread_handle);
     tokio::pin!(trademe_thread_handle);
+    tokio::pin!(healthcheck_handle);
 
     loop {
         tokio::select! {
@@ -97,6 +120,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             _ = trademe_thread_handle => {
                 info!("trademe handler shut down");
+                break;
+            }
+
+            _ = healthcheck_handle => {
+                info!("healthcheck server shut down");
                 break;
             }
         }

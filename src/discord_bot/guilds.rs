@@ -1,6 +1,9 @@
 //! A handler for a guild, each guild will have one handler instance to manage it
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::{atomic::Ordering, Arc},
+    time::Duration,
+};
 
 use log::{error, info, trace, warn};
 use serenity::{
@@ -172,6 +175,8 @@ impl GuildHandler {
 
             info!("Monitoring guild with id {:?}", guild);
 
+            app_state.num_connected.fetch_add(1, Ordering::Relaxed);
+
             self.handle = Some(tokio::task::spawn(async move {
                 // register all commands
                 while let Err(e) = guild
@@ -231,6 +236,8 @@ impl GuildHandler {
                 }
 
                 println!("No longer monitoring server with id {:?}", guild);
+
+                app_state.num_connected.fetch_sub(1, Ordering::Relaxed);
             }))
         } else {
             eprintln!("Already monitoring guild");
