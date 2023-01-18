@@ -367,64 +367,70 @@ impl<'a> InteractionCommand<'a> for PayCommand {
             ));
         }
 
+        let mut edit_message = EditMessage::new().embed(
+            CreateEmbed::new()
+                .description(
+                    interaction.message.embeds[0]
+                        .description
+                        .as_ref()
+                        .unwrap_or(&String::from("")),
+                )
+                .footer(CreateEmbedFooter::new({
+                    interaction.message.embeds[0]
+                        .footer
+                        .as_ref()
+                        .expect("footer to be present")
+                        .text
+                        .clone()
+                }))
+                .fields({
+                    let mut fields: Vec<(String, String, bool)> =
+                        Vec::with_capacity(message.embeds[0].fields.len());
+                    for field in message.embeds[0].fields.iter() {
+                        if field.name.contains("paid") {
+                            all_set += 1;
+                        }
+                        if field.name.to_lowercase().contains(&user.name)
+                            && field.name.contains("pay")
+                        {
+                            fields.push((
+                                format!(
+                                    "{}{} paid {} on:",
+                                    user.name[0..1].to_uppercase(),
+                                    &user.name[1..],
+                                    field.value
+                                ),
+                                current_time.to_string(),
+                                field.inline,
+                            ));
+                            all_set += 1;
+                        } else {
+                            fields.push((
+                                field.name.clone(),
+                                field.value.clone(),
+                                field.inline,
+                            ));
+                        }
+                    }
+                    fields
+                })
+                .color({
+                    if all_set == message.embeds[0].fields.len() {
+                        EmbedColor::Green as u32
+                    } else {
+                        EmbedColor::Red as u32
+                    }
+                }),
+        );
+
+        if all_set == message.embeds[0].fields.len() {
+            edit_message = edit_message.components(Vec::with_capacity(0));
+        }
+
         if let Err(e) = message
             .edit(
                 &ctx,
-                EditMessage::new().embed(
-                    CreateEmbed::new()
-                        .description(
-                            interaction.message.embeds[0]
-                                .description
-                                .as_ref()
-                                .unwrap_or(&String::from("")),
-                        )
-                        .footer(CreateEmbedFooter::new({
-                            interaction.message.embeds[0]
-                                .footer
-                                .as_ref()
-                                .expect("footer to be present")
-                                .text
-                                .clone()
-                        }))
-                        .fields({
-                            let mut fields: Vec<(String, String, bool)> =
-                                Vec::with_capacity(message.embeds[0].fields.len());
-                            for field in message.embeds[0].fields.iter() {
-                                if field.name.contains("paid") {
-                                    all_set += 1;
-                                }
-                                if field.name.to_lowercase().contains(&user.name)
-                                    && field.name.contains("pay")
-                                {
-                                    fields.push((
-                                        format!(
-                                            "{}{} paid {} on:",
-                                            user.name[0..1].to_uppercase(),
-                                            &user.name[1..],
-                                            field.value
-                                        ),
-                                        current_time.to_string(),
-                                        field.inline,
-                                    ));
-                                    all_set += 1;
-                                } else {
-                                    fields.push((
-                                        field.name.clone(),
-                                        field.value.clone(),
-                                        field.inline,
-                                    ));
-                                }
-                            }
-                            fields
-                        })
-                        .color({
-                            if all_set == message.embeds[0].fields.len() {
-                                EmbedColor::Green as u32
-                            } else {
-                                EmbedColor::Red as u32
-                            }
-                        }),
-                ),
+                edit_message
             )
             .await
         {
