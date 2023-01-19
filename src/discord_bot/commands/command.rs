@@ -13,7 +13,7 @@ use crate::{
         pay::{PayAllCommand, PayCommand},
         ping::PingCommand,
         say::SayCommand,
-        shop::Shop,
+        shop::{Shop, ShoppingComplete},
     },
     state::AppState,
 };
@@ -170,7 +170,7 @@ pub fn application_command() -> Vec<CreateCommand> {
         PayCommand,
         PayAllCommand,
         Shop,
-        // ShoppingList
+        ShoppingComplete,
     );
     base
 }
@@ -191,7 +191,7 @@ pub async fn command<'a>(
         PayCommand,
         PayAllCommand,
         Shop,
-        // ShoppingList
+        ShoppingComplete,
     )
 }
 

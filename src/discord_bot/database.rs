@@ -77,6 +77,10 @@ pub mod shopping {
             &self,
             count: u64,
         ) -> DatabaseResult<Vec<ShoppingListItemModel>>;
+
+        async fn get_unbought_shopping_list_items(
+            &self,
+        ) -> DatabaseResult<Vec<ShoppingListItemModel>>;
     }
 
     #[async_trait]
@@ -237,6 +241,18 @@ pub mod shopping {
             let shopping_list: Vec<ShoppingListItemModel> = ShoppingListItemEntity::find()
                 .order_by_desc(<ShoppingListItemEntity as EntityTrait>::Column::CreatedAt)
                 .limit(count)
+                .all(&*self.database)
+                .await?;
+
+            Ok(shopping_list)
+        }
+
+        async fn get_unbought_shopping_list_items(
+            &self,
+        ) -> DatabaseResult<Vec<ShoppingListItemModel>> {
+            let shopping_list: Vec<ShoppingListItemModel> = ShoppingListItemEntity::find()
+                .filter(<ShoppingListItemEntity as EntityTrait>::Column::Bought.eq(false))
+                .order_by_desc(<ShoppingListItemEntity as EntityTrait>::Column::CreatedAt)
                 .all(&*self.database)
                 .await?;
 

@@ -405,11 +405,7 @@ impl<'a> InteractionCommand<'a> for PayCommand {
                             ));
                             all_set += 1;
                         } else {
-                            fields.push((
-                                field.name.clone(),
-                                field.value.clone(),
-                                field.inline,
-                            ));
+                            fields.push((field.name.clone(), field.value.clone(), field.inline));
                         }
                     }
                     fields
@@ -427,13 +423,7 @@ impl<'a> InteractionCommand<'a> for PayCommand {
             edit_message = edit_message.components(Vec::with_capacity(0));
         }
 
-        if let Err(e) = message
-            .edit(
-                &ctx,
-                edit_message
-            )
-            .await
-        {
+        if let Err(e) = message.edit(&ctx, edit_message).await {
             return Err(CommandResponse::InternalFailure(format!(
                 "Failed to edit message: {}",
                 e

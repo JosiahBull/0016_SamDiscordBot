@@ -10,7 +10,8 @@ use serenity::{
     builder::{
         AutocompleteChoice, CreateActionRow, CreateAutocompleteResponse, CreateButton,
         CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponse,
-        CreateInteractionResponseFollowup, CreateInteractionResponseMessage, EditMessage,
+        CreateInteractionResponseFollowup, CreateInteractionResponseMessage, CreateMessage,
+        EditMessage,
     },
     prelude::Context,
 };
@@ -197,12 +198,37 @@ impl Interactable for ComponentInteraction {
     }
 }
 
-async fn create_new_shopping<'b, A: Interactable>(
+trait Constructable: Default {
+    fn add_embed(self, embed: CreateEmbed) -> Self;
+    fn add_components(self, components: Vec<CreateActionRow>) -> Self;
+}
+
+impl Constructable for CreateInteractionResponseFollowup {
+    fn add_embed(self, embed: CreateEmbed) -> Self {
+        self.embed(embed)
+    }
+
+    fn add_components(self, components: Vec<CreateActionRow>) -> Self {
+        self.components(components)
+    }
+}
+
+impl Constructable for CreateMessage {
+    fn add_embed(self, embed: CreateEmbed) -> Self {
+        self.embed(embed)
+    }
+
+    fn add_components(self, components: Vec<CreateActionRow>) -> Self {
+        self.components(components)
+    }
+}
+
+async fn create_new_shopping<'b, A: Interactable, B: Constructable>(
     shop: Shop<'b>,
     interaction: &'b A,
     state: &'b AppState,
     ctx: &'b Context,
-) -> Result<CommandResponse, CommandResponse> {
+) -> Result<B, CommandResponse> {
     if let Err(e) = interaction
         .interactable_create_response(
             ctx,
@@ -262,51 +288,40 @@ async fn create_new_shopping<'b, A: Interactable>(
         return Err(CommandResponse::NoResponse);
     }
 
-    if let Err(e) = interaction
-        .interactable_create_followup(
-            ctx,
-            CreateInteractionResponseFollowup::new()
-                .embed(
-                    CreateEmbed::new()
-                        // .title("Added to shopping list") //XXX: experiment
-                        .description(format!(
-                            "Added x{} {}{} to the shopping list{}{}",
-                            shop.quantity,
-                            shop.item,
-                            if shop.personal { " (personal)" } else { "" },
-                            if shop.store.is_some() {
-                                format!(" from {}", shop.store.unwrap())
-                            } else {
-                                "".to_string()
-                            },
-                            if shop.notes.is_some() {
-                                format!("\n**note:** {}", shop.notes.unwrap())
-                            } else {
-                                "".to_string()
-                            },
-                        ))
-                        .color(EmbedColor::Red as u32),
-                )
-                .components(vec![CreateActionRow::Buttons(vec![
-                    CreateButton::new("bought")
-                        .style(serenity::all::ButtonStyle::Success)
-                        .label("Bought"),
-                    CreateButton::new("remove")
-                        .style(serenity::all::ButtonStyle::Danger)
-                        .label("Remove"),
-                    CreateButton::new("readd")
-                        .style(serenity::all::ButtonStyle::Secondary)
-                        .label("Re-add")
-                        .disabled(true),
-                ])])
-                .ephemeral(false),
+    Ok(B::default()
+        .add_embed(
+            CreateEmbed::new()
+                // .title("Added to shopping list") //XXX: experiment
+                .description(format!(
+                    "Added x{} {}{} to the shopping list{}{}",
+                    shop.quantity,
+                    shop.item,
+                    if shop.personal { " (personal)" } else { "" },
+                    if shop.store.is_some() {
+                        format!(" from {}", shop.store.unwrap())
+                    } else {
+                        "".to_string()
+                    },
+                    if shop.notes.is_some() {
+                        format!("\n**note:** {}", shop.notes.unwrap())
+                    } else {
+                        "".to_string()
+                    },
+                ))
+                .color(EmbedColor::Red as u32),
         )
-        .await
-    {
-        error!("error editing message to return success: {}", e);
-    }
-
-    Ok(CommandResponse::NoResponse)
+        .add_components(vec![CreateActionRow::Buttons(vec![
+            CreateButton::new("bought")
+                .style(serenity::all::ButtonStyle::Success)
+                .label("Bought"),
+            CreateButton::new("remove")
+                .style(serenity::all::ButtonStyle::Danger)
+                .label("Remove"),
+            CreateButton::new("readd")
+                .style(serenity::all::ButtonStyle::Secondary)
+                .label("Re-add")
+                .disabled(true),
+        ])]))
 }
 
 pub struct Shop<'a> {
@@ -430,7 +445,13 @@ impl<'a> Command<'a> for Shop<'a> {
         state: &'b AppState,
         ctx: &'b Context,
     ) -> Result<CommandResponse, CommandResponse> {
-        create_new_shopping(self, interaction, state, ctx).await
+        let resp = create_new_shopping(self, interaction, state, ctx).await?;
+
+        if let Err(e) = interaction.create_followup(&ctx, resp).await {
+            error!("error creating followup: {}", e);
+            return Err(CommandResponse::NoResponse);
+        }
+        Ok(CommandResponse::NoResponse)
     }
 }
 
@@ -710,7 +731,7 @@ impl<'a> InteractionCommand<'a> for Shop<'a> {
                     }
                 };
 
-                return create_new_shopping(
+                let resp = create_new_shopping(
                     Shop {
                         item: item.item.as_ref(),
                         personal: item.personal,
@@ -722,12 +743,102 @@ impl<'a> InteractionCommand<'a> for Shop<'a> {
                     app_state,
                     ctx,
                 )
-                .await;
+                .await?;
+
+                if let Err(e) = interaction.create_followup(&ctx, resp).await {
+                    return Err(CommandResponse::InternalFailure(format!(
+                        "error communicating with discord: {}",
+                        e
+                    )));
+                }
             }
             _ => {
                 return Err(CommandResponse::InternalFailure(
                     "Invalid interaction".to_string(),
                 ));
+            }
+        }
+
+        Ok(CommandResponse::NoResponse)
+    }
+}
+
+pub struct ShoppingComplete;
+
+impl<'a> TryFrom<&'a CommandInteraction> for ShoppingComplete {
+    type Error = String;
+
+    fn try_from(_: &'a CommandInteraction) -> Result<Self, Self::Error> {
+        Ok(ShoppingComplete)
+    }
+}
+
+#[async_trait]
+impl<'a> Command<'a> for ShoppingComplete {
+    fn name() -> &'static str {
+        "shopping-complete"
+    }
+
+    fn description() -> &'static str {
+        "Run this command once you have completed shopping"
+    }
+
+    fn get_application_command_options(command: CreateCommand) -> CreateCommand {
+        command
+    }
+
+    async fn handle_application_command<'b>(
+        self,
+        cmd_interaction: &'b CommandInteraction,
+        app_state: &'b AppState,
+        ctx: &'b Context,
+    ) -> Result<CommandResponse, CommandResponse> {
+        if let Err(e) = cmd_interaction.create_response(&ctx,
+            CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::new()
+                    .content("-----------------------------------\n**Shopping Complete!**\n-----------------------------------")
+            )
+        ).await {
+            return Err(CommandResponse::InternalFailure(format!(
+                "error communicating with discord: {}",
+                e
+            )));
+        }
+
+        // collect every non-bought item from the shopping list
+        let items = match app_state.get_unbought_shopping_list_items().await {
+            Ok(items) => items,
+            Err(e) => {
+                return Err(CommandResponse::InternalFailure(format!(
+                    "error communicating with database: {}",
+                    e
+                )));
+            }
+        };
+
+        let channel = cmd_interaction.channel_id();
+
+        // for each item, send a message to the shopping channel
+        for item in items {
+            let resp = create_new_shopping(
+                Shop {
+                    item: item.item.as_ref(),
+                    personal: item.personal,
+                    quantity: item.quantity,
+                    store: item.store.as_deref(),
+                    notes: item.notes.as_deref(),
+                },
+                cmd_interaction,
+                app_state,
+                ctx,
+            )
+            .await?;
+
+            if let Err(e) = channel.send_message(&ctx, resp).await {
+                return Err(CommandResponse::InternalFailure(format!(
+                    "error communicating with discord: {}",
+                    e
+                )));
             }
         }
 
