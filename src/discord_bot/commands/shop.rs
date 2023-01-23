@@ -10,7 +10,8 @@ use serenity::{
     builder::{
         AutocompleteChoice, CreateActionRow, CreateAutocompleteResponse, CreateButton,
         CreateCommand, CreateCommandOption, CreateEmbed, CreateInteractionResponse,
-        CreateInteractionResponseFollowup, CreateInteractionResponseMessage, EditMessage,
+        CreateInteractionResponseFollowup, CreateInteractionResponseMessage, CreateMessage,
+        EditMessage,
     },
     prelude::Context,
 };
@@ -197,12 +198,35 @@ impl Interactable for ComponentInteraction {
     }
 }
 
-async fn create_new_shopping<'b, A: Interactable>(
-    shop: Shop<'b>,
+trait Constructable: Default {
+    fn add_embed(self, embed: CreateEmbed) -> Self;
+    fn add_components(self, components: Vec<CreateActionRow>) -> Self;
+}
+
+impl Constructable for CreateInteractionResponseFollowup {
+    fn add_embed(self, embed: CreateEmbed) -> Self {
+        self.embed(embed)
+    }
+
+    fn add_components(self, components: Vec<CreateActionRow>) -> Self {
+        self.components(components)
+    }
+}
+
+impl Constructable for CreateMessage {
+    fn add_embed(self, embed: CreateEmbed) -> Self {
+        self.embed(embed)
+    }
+
+    fn add_components(self, components: Vec<CreateActionRow>) -> Self {
+        self.components(components)
+    }
+}
+
+async fn create_loading_message<'b, A: Interactable>(
     interaction: &'b A,
-    state: &'b AppState,
     ctx: &'b Context,
-) -> Result<CommandResponse, CommandResponse> {
+) -> Result<u64, CommandResponse> {
     if let Err(e) = interaction
         .interactable_create_response(
             ctx,
@@ -226,15 +250,24 @@ async fn create_new_shopping<'b, A: Interactable>(
         }
     };
 
-    let user_id: u64 = interaction.user().id.into();
-    let loading_message_id: u64 = loading_message.id.into();
-    let channel_id: u64 = interaction.channel_id().into();
-    let guild_id: Option<u64> = interaction.guild_id().map(|id| id.into());
+    Ok(loading_message.id.into())
+}
+
+async fn push_list_item_to_database<'b, A: Interactable>(
+    shop: Shop<'b>,
+    state: &'b AppState,
+    interaction: &'b A,
+    ctx: &'b Context,
+    message_id: u64,
+) -> Result<(), CommandResponse> {
+    let user_id = interaction.user().id.into();
+    let channel_id = interaction.channel_id().into();
+    let guild_id = interaction.guild_id().map(|g| g.0.into());
 
     if let Err(e) = state
         .add_shopping_list_item(
             user_id,
-            loading_message_id,
+            message_id,
             channel_id,
             guild_id,
             NewShoppingListItem {
@@ -261,54 +294,49 @@ async fn create_new_shopping<'b, A: Interactable>(
         }
         return Err(CommandResponse::NoResponse);
     }
-
-    if let Err(e) = interaction
-        .interactable_create_followup(
-            ctx,
-            CreateInteractionResponseFollowup::new()
-                .embed(
-                    CreateEmbed::new()
-                        // .title("Added to shopping list") //XXX: experiment
-                        .description(format!(
-                            "Added x{} {}{} to the shopping list{}{}",
-                            shop.quantity,
-                            shop.item,
-                            if shop.personal { " (personal)" } else { "" },
-                            if shop.store.is_some() {
-                                format!(" from {}", shop.store.unwrap())
-                            } else {
-                                "".to_string()
-                            },
-                            if shop.notes.is_some() {
-                                format!("\n**note:** {}", shop.notes.unwrap())
-                            } else {
-                                "".to_string()
-                            },
-                        ))
-                        .color(EmbedColor::Red as u32),
-                )
-                .components(vec![CreateActionRow::Buttons(vec![
-                    CreateButton::new("bought")
-                        .style(serenity::all::ButtonStyle::Success)
-                        .label("Bought"),
-                    CreateButton::new("remove")
-                        .style(serenity::all::ButtonStyle::Danger)
-                        .label("Remove"),
-                    CreateButton::new("readd")
-                        .style(serenity::all::ButtonStyle::Secondary)
-                        .label("Re-add")
-                        .disabled(true),
-                ])])
-                .ephemeral(false),
-        )
-        .await
-    {
-        error!("error editing message to return success: {}", e);
-    }
-
-    Ok(CommandResponse::NoResponse)
+    Ok(())
 }
 
+async fn create_new_shopping<'b, B: Constructable>(
+    shop: &'b Shop<'b>,
+) -> Result<B, CommandResponse> {
+    Ok(B::default()
+        .add_embed(
+            CreateEmbed::new()
+                // .title("Added to shopping list") //XXX: experiment
+                .description(format!(
+                    "Added x{} {}{} to the shopping list{}{}",
+                    shop.quantity,
+                    shop.item,
+                    if shop.personal { " (personal)" } else { "" },
+                    if shop.store.is_some() {
+                        format!(" from {}", shop.store.unwrap())
+                    } else {
+                        "".to_string()
+                    },
+                    if shop.notes.is_some() {
+                        format!("\n**note:** {}", shop.notes.unwrap())
+                    } else {
+                        "".to_string()
+                    },
+                ))
+                .color(EmbedColor::Red as u32),
+        )
+        .add_components(vec![CreateActionRow::Buttons(vec![
+            CreateButton::new("bought")
+                .style(serenity::all::ButtonStyle::Success)
+                .label("Bought"),
+            CreateButton::new("remove")
+                .style(serenity::all::ButtonStyle::Danger)
+                .label("Remove"),
+            CreateButton::new("readd")
+                .style(serenity::all::ButtonStyle::Secondary)
+                .label("Re-add")
+                .disabled(true),
+        ])]))
+}
+
+#[derive(Debug)]
 pub struct Shop<'a> {
     item: &'a str,
     personal: bool,
@@ -430,7 +458,17 @@ impl<'a> Command<'a> for Shop<'a> {
         state: &'b AppState,
         ctx: &'b Context,
     ) -> Result<CommandResponse, CommandResponse> {
-        create_new_shopping(self, interaction, state, ctx).await
+        let loading_message = create_loading_message(interaction, ctx).await?;
+        let resp = create_new_shopping(&self).await?;
+
+        if let Err(e) = interaction.create_followup(&ctx, resp).await {
+            error!("error creating followup: {}", e);
+            return Err(CommandResponse::NoResponse);
+        }
+
+        push_list_item_to_database(self, state, interaction, ctx, loading_message).await?;
+
+        Ok(CommandResponse::NoResponse)
     }
 }
 
@@ -648,6 +686,17 @@ impl<'a> InteractionCommand<'a> for Shop<'a> {
                     .unwrap();
             }
             "remove" => {
+                // mark as bought in database
+                if let Err(e) = app_state
+                    .set_shopping_list_item_bought(user_id, msg_id, true)
+                    .await
+                {
+                    return Err(CommandResponse::InternalFailure(format!(
+                        "error communicating with database: {}",
+                        e
+                    )));
+                }
+
                 let ex_embed = match interaction.message.embeds.get(0) {
                     Some(embed) => embed,
                     None => {
@@ -710,19 +759,28 @@ impl<'a> InteractionCommand<'a> for Shop<'a> {
                     }
                 };
 
-                return create_new_shopping(
-                    Shop {
-                        item: item.item.as_ref(),
-                        personal: item.personal,
-                        quantity: item.quantity,
-                        store: item.store.as_deref(),
-                        notes: item.notes.as_deref(),
-                    },
-                    interaction,
-                    app_state,
-                    ctx,
-                )
-                .await;
+                create_loading_message(interaction, ctx).await?;
+                let shop = Shop {
+                    item: item.item.as_ref(),
+                    personal: item.personal,
+                    quantity: item.quantity,
+                    store: item.store.as_deref(),
+                    notes: item.notes.as_deref(),
+                };
+                let resp = create_new_shopping(&shop).await?;
+
+                let msg_id = match interaction.create_followup(&ctx, resp).await {
+                    Ok(m) => m,
+                    Err(e) => {
+                        return Err(CommandResponse::InternalFailure(format!(
+                            "error communicating with discord: {}",
+                            e
+                        )));
+                    }
+                };
+
+                push_list_item_to_database(shop, app_state, interaction, ctx, msg_id.id.into())
+                    .await?;
             }
             _ => {
                 return Err(CommandResponse::InternalFailure(
@@ -735,174 +793,138 @@ impl<'a> InteractionCommand<'a> for Shop<'a> {
     }
 }
 
-// pub struct ShoppingList;
+pub struct ShoppingComplete;
 
-// impl<'a> TryFrom<&'a CommandInteraction> for ShoppingList {
-//     type Error = String;
-//     fn try_from(_: &'a CommandInteraction) -> Result<Self, Self::Error> {
-//         Ok(Self)
-//     }
-// }
+impl<'a> TryFrom<&'a CommandInteraction> for ShoppingComplete {
+    type Error = String;
 
-// #[async_trait]
-// impl<'a> Command<'a> for ShoppingList {
-//     fn name() -> &'static str {
-//         "list-all"
-//     }
+    fn try_from(_: &'a CommandInteraction) -> Result<Self, Self::Error> {
+        Ok(ShoppingComplete)
+    }
+}
 
-//     fn description() -> &'static str {
-//         "List all shopping list items"
-//     }
+#[async_trait]
+impl<'a> Command<'a> for ShoppingComplete {
+    fn name() -> &'static str {
+        "shopping-complete"
+    }
 
-//     fn get_application_command_options(command: CreateCommand) -> CreateCommand {
-//         command
-//     }
+    fn description() -> &'static str {
+        "Run this command once you have completed shopping"
+    }
 
-//     async fn handle_application_command<'b>(
-//         self,
-//         _: &'b CommandInteraction,
-//         app_state: &'b AppState,
-//         ctx: &'b Context,
-//     ) -> Result<CommandResponse, CommandResponse> {
-//         let shopping_list = match app_state.get_shopping_list().await {
-//             Ok(Some(s)) => s,
-//             Ok(None) => {
-//                 return Ok(CommandResponse::ComplexSuccess(
-//                     CreateInteractionResponse::Message(
-//                         CreateInteractionResponseMessage::new()
-//                             .content("No shopping list found")
-//                             .ephemeral(true),
-//                     ),
-//                 ))
-//             }
-//             Err(e) => {
-//                 return Err(CommandResponse::InternalFailure(format!(
-//                     "error communicating with database: {}",
-//                     e
-//                 )));
-//             }
-//         };
-//         let (shopping_list, shopping_items) = shopping_list;
+    fn get_application_command_options(command: CreateCommand) -> CreateCommand {
+        command
+    }
 
-//         let msg = MessageId::from(shopping_list.creation_message_id as u64);
-//         let msg_link = msg
-//             .link_ensured(
-//                 &ctx,
-//                 ChannelId::from(shopping_list.creation_message_channel_id as u64),
-//                 shopping_list
-//                     .creation_message_guild_id
-//                     .map(|g| GuildId::from(g as u64)),
-//             )
-//             .await;
+    async fn handle_application_command<'b>(
+        self,
+        cmd_interaction: &'b CommandInteraction,
+        app_state: &'b AppState,
+        ctx: &'b Context,
+    ) -> Result<CommandResponse, CommandResponse> {
+        // TODO: actually make use of the shopping list -> shopping list item table
+        // to separate what items are actually available to be bought when this command runs
+        if let Err(e) = cmd_interaction.create_response(&ctx,
+            CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::new()
+                    .content("-----------------------------------\n**Shopping Complete!**\n-----------------------------------")
+            )
+        ).await {
+            return Err(CommandResponse::InternalFailure(format!(
+                "error communicating with discord: {}",
+                e
+            )));
+        }
 
-//         Ok(CommandResponse::ComplexSuccess(
-//             CreateInteractionResponse::Message(
-//                 CreateInteractionResponseMessage::new()
-//                     .embed(
-//                         CreateEmbed::new()
-//                             .description(format!(
-//                                 "Shopping list dated `{}`",
-//                                 chrono::offset::Local::now().format("%d/%m/%y at %I:%M%P")
-//                             ))
-//                             .fields({
-//                                 let mut fields: Vec<(String, String, bool)> =
-//                                     Vec::with_capacity(shopping_items.len());
-//                                 for item in shopping_items.into_iter() {
-//                                     fields.push((
-//                                         item.item,
-//                                         format!(
-//                                             "{} {}{}{}",
-//                                             item.quantity,
-//                                             if item.personal { " (personal)" } else { "" },
-//                                             item.store
-//                                                 .map(|s| format!(" {}", s))
-//                                                 .unwrap_or_default(),
-//                                             item.notes
-//                                                 .map(|n| format!(" {}", n))
-//                                                 .unwrap_or_default(),
-//                                         ),
-//                                         false,
-//                                     ))
-//                                 }
-//                                 fields
-//                             })
-//                             .footer(CreateEmbedFooter::new(format!(
-//                                 "\n{}",
-//                                 PHRASES[rand::random::<usize>() % PHRASES.len()]
-//                             ))),
-//                     )
-//                     .components(vec![CreateActionRow::Buttons(vec![
-//                         CreateButton::new("prev")
-//                             .style(serenity::all::ButtonStyle::Secondary)
-//                             .label("Prev")
-//                             .disabled(true), //TODO: setup pagination
-//                         CreateButton::new("next")
-//                             .style(serenity::all::ButtonStyle::Primary)
-//                             .label("Next")
-//                             .disabled(false), //TODO: setup pagination
-//                         CreateButton::new("refresh")
-//                             .style(serenity::all::ButtonStyle::Danger)
-//                             .label("Refresh"),
-//                         CreateButton::new_link(msg_link).label("First Item (for ticking)"),
-//                     ])]),
-//             ),
-//         ))
-//     }
-// }
+        // collect every non-bought item from the shopping list
+        let items = match app_state.get_unbought_shopping_list_items().await {
+            Ok(items) => items,
+            Err(e) => {
+                return Err(CommandResponse::InternalFailure(format!(
+                    "error communicating with database: {}",
+                    e
+                )));
+            }
+        };
 
-// #[async_trait]
-// impl<'a> InteractionCommand<'a> for ShoppingList {
-//     async fn answerable<'b>(
-//         interaction: &'b ComponentInteraction,
-//         _: &'b AppState,
-//         _: &'b Context,
-//     ) -> bool {
-//         if !interaction
-//             .message
-//             .content
-//             .starts_with("Shopping list dated")
-//         {
-//             return false;
-//         }
+        let channel = cmd_interaction.channel_id();
 
-//         let now = Local::now();
-//         let message_time_str = interaction
-//             .message
-//             .content
-//             .strip_prefix("Shopping list dated `")
-//             .unwrap()
-//             .strip_suffix('`')
-//             .unwrap();
-//         let message_time =
-//             match chrono::DateTime::parse_from_str(message_time_str, "%d/%m/%y at %I:%M%P") {
-//                 Ok(t) => t,
-//                 Err(_) => return false,
-//             };
-//         let message_time = message_time.with_timezone(&Local);
+        // for each item, send a message to the shopping channel
+        for item in items {
+            let shop = Shop {
+                item: item.item.as_ref(),
+                personal: item.personal,
+                quantity: item.quantity,
+                store: item.store.as_deref(),
+                notes: item.notes.as_deref(),
+            };
 
-//         // check message is less than 24 hours old
-//         if now - message_time > chrono::Duration::hours(24) {
-//             return false;
-//         }
-//         return true;
-//     }
+            let resp = create_new_shopping(&shop).await?;
 
-//     async fn interaction<'b>(
-//         interaction: &'b ComponentInteraction,
-//         app_state: &'b AppState,
-//         context: &'b Context,
-//     ) -> Result<CommandResponse, CommandResponse> {
-//         match interaction.data.custom_id.as_ref() {
-//             "prev" => {}
-//             "next" => {}
-//             "refresh" => {}
-//             _ => {
-//                 return Err(CommandResponse::InternalFailure(
-//                     "Invalid interaction".to_string(),
-//                 ));
-//             }
-//         }
+            let new_msg = match channel.send_message(&ctx, resp).await {
+                Ok(m) => m,
+                Err(e) => {
+                    return Err(CommandResponse::InternalFailure(format!(
+                        "error communicating with discord: {}",
+                        e
+                    )));
+                }
+            };
 
-//         Ok(CommandResponse::NoResponse)
-//     }
-// }
+            push_list_item_to_database(shop, app_state, cmd_interaction, ctx, new_msg.id.into())
+                .await?;
+
+            // mark old item as bought in the database
+            if let Err(e) = app_state
+                .set_shopping_list_item_bought(item.user_id as u64, item.message_id as u64, true)
+                .await
+            {
+                return Err(CommandResponse::InternalFailure(format!(
+                    "error communicating with database: {}",
+                    e
+                )));
+            }
+
+            let ex_embed = match channel.message(&ctx, item.message_id as u64).await {
+                Ok(m) => m.embeds.first().unwrap().clone(),
+                Err(e) => {
+                    return Err(CommandResponse::InternalFailure(format!(
+                        "error communicating with discord: {}",
+                        e
+                    )));
+                }
+            };
+
+            // edit the old message to show that it has been refreshed
+            if let Err(e) = channel
+                .edit_message(
+                    ctx,
+                    item.message_id as u64,
+                    EditMessage::new()
+                        .embed(
+                            CreateEmbed::new()
+                                //XXX: title?
+                                .description(format!(
+                                    "(REFRESHED) ~~{}~~",
+                                    ex_embed
+                                        .description
+                                        .as_ref()
+                                        .expect("description not found")
+                                ))
+                                .color(EmbedColor::Blue as u32),
+                        )
+                        .components(vec![]),
+                )
+                .await
+            {
+                return Err(CommandResponse::InternalFailure(format!(
+                    "error communicating with discord: {}",
+                    e
+                )));
+            }
+        }
+
+        Ok(CommandResponse::NoResponse)
+    }
+}
