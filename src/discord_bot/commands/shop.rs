@@ -831,6 +831,7 @@ impl<'a> Command<'a> for ShoppingComplete {
                     .content("-----------------------------------\n**Shopping Complete!**\n-----------------------------------")
             )
         ).await {
+            error!("error communicating with discord to create initial response: {}", e);
             return Err(CommandResponse::InternalFailure(format!(
                 "error communicating with discord: {}",
                 e
@@ -865,6 +866,10 @@ impl<'a> Command<'a> for ShoppingComplete {
             let new_msg = match channel.send_message(&ctx, resp).await {
                 Ok(m) => m,
                 Err(e) => {
+                    error!(
+                        "error communicating with discord to send shopping list item: {}",
+                        e
+                    );
                     return Err(CommandResponse::InternalFailure(format!(
                         "error communicating with discord: {}",
                         e
@@ -889,6 +894,7 @@ impl<'a> Command<'a> for ShoppingComplete {
             let ex_embed = match channel.message(&ctx, item.message_id as u64).await {
                 Ok(m) => m.embeds.first().unwrap().clone(),
                 Err(e) => {
+                    error!("error communicating with discord to get old message: {}", e);
                     return Err(CommandResponse::InternalFailure(format!(
                         "error communicating with discord: {}",
                         e
@@ -904,7 +910,6 @@ impl<'a> Command<'a> for ShoppingComplete {
                     EditMessage::new()
                         .embed(
                             CreateEmbed::new()
-                                //XXX: title?
                                 .description(format!(
                                     "(REFRESHED) ~~{}~~",
                                     ex_embed
@@ -918,8 +923,12 @@ impl<'a> Command<'a> for ShoppingComplete {
                 )
                 .await
             {
+                error!(
+                    "error communicating with discord to edit old message: {}",
+                    e
+                );
                 return Err(CommandResponse::InternalFailure(format!(
-                    "error communicating with discord: {}",
+                    "error communicating with discord to edit old message: {}",
                     e
                 )));
             }
