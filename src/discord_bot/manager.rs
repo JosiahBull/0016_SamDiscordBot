@@ -148,14 +148,14 @@ impl<T: Send + Sync + 'static + Clone + TypeMapKey<Value = T>> DiscordBot<T> {
                 select! {
                     Some(i_e) = i_rx.recv() => {
                         match i_e {
-                            DiscordEvent::NewGuild(mut handler) => {
+                            DiscordEvent::NewGuild(handler) => {
                                 // finish creating the handler
                                 let key: u64 = handler.guild_id.into();
                                 if guild_handlers.contains_key(&key) {
-                                    error!("tried to double handle a guild");
-                                    if let Err(e) = handler.close(Duration::from_secs(0)).await {
-                                        error!("failed to close a guild handler {}", e);
-                                    }
+                                    panic!("tried to double handle a guild");
+                                    // if let Err(e) = handler.close(Duration::from_secs(0)).await {
+                                    //     error!("failed to close a guild handler {}", e);
+                                    // }
                                 }
                                 guild_handlers.insert(key, handler);
                             },
