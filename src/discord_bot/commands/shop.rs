@@ -793,147 +793,147 @@ impl<'a> InteractionCommand<'a> for Shop<'a> {
     }
 }
 
-pub struct ShoppingComplete;
+// pub struct ShoppingComplete;
 
-impl<'a> TryFrom<&'a CommandInteraction> for ShoppingComplete {
-    type Error = String;
+// impl<'a> TryFrom<&'a CommandInteraction> for ShoppingComplete {
+//     type Error = String;
 
-    fn try_from(_: &'a CommandInteraction) -> Result<Self, Self::Error> {
-        Ok(ShoppingComplete)
-    }
-}
+//     fn try_from(_: &'a CommandInteraction) -> Result<Self, Self::Error> {
+//         Ok(ShoppingComplete)
+//     }
+// }
 
-#[async_trait]
-impl<'a> Command<'a> for ShoppingComplete {
-    fn name() -> &'static str {
-        "shopping-complete"
-    }
+// #[async_trait]
+// impl<'a> Command<'a> for ShoppingComplete {
+//     fn name() -> &'static str {
+//         "shopping-complete"
+//     }
 
-    fn description() -> &'static str {
-        "Run this command once you have completed shopping"
-    }
+//     fn description() -> &'static str {
+//         "Run this command once you have completed shopping"
+//     }
 
-    fn get_application_command_options(command: CreateCommand) -> CreateCommand {
-        command
-    }
+//     fn get_application_command_options(command: CreateCommand) -> CreateCommand {
+//         command
+//     }
 
-    async fn handle_application_command<'b>(
-        self,
-        cmd_interaction: &'b CommandInteraction,
-        app_state: &'b AppState,
-        ctx: &'b Context,
-    ) -> Result<CommandResponse, CommandResponse> {
-        // TODO: actually make use of the shopping list -> shopping list item table
-        // to separate what items are actually available to be bought when this command runs
-        if let Err(e) = cmd_interaction.create_response(&ctx,
-            CreateInteractionResponse::Message(
-                CreateInteractionResponseMessage::new()
-                    .content("-----------------------------------\n**Shopping Complete!**\n-----------------------------------")
-            )
-        ).await {
-            error!("error communicating with discord to create initial response: {}", e);
-            return Err(CommandResponse::InternalFailure(format!(
-                "error communicating with discord: {}",
-                e
-            )));
-        }
+//     async fn handle_application_command<'b>(
+//         self,
+//         cmd_interaction: &'b CommandInteraction,
+//         app_state: &'b AppState,
+//         ctx: &'b Context,
+//     ) -> Result<CommandResponse, CommandResponse> {
+//         // TODO: actually make use of the shopping list -> shopping list item table
+//         // to separate what items are actually available to be bought when this command runs
+//         if let Err(e) = cmd_interaction.create_response(&ctx,
+//             CreateInteractionResponse::Message(
+//                 CreateInteractionResponseMessage::new()
+//                     .content("-----------------------------------\n**Shopping Complete!**\n-----------------------------------")
+//             )
+//         ).await {
+//             error!("error communicating with discord to create initial response: {}", e);
+//             return Err(CommandResponse::InternalFailure(format!(
+//                 "error communicating with discord: {}",
+//                 e
+//             )));
+//         }
 
-        // collect every non-bought item from the shopping list
-        let items = match app_state.get_unbought_shopping_list_items().await {
-            Ok(items) => items,
-            Err(e) => {
-                return Err(CommandResponse::InternalFailure(format!(
-                    "error communicating with database: {}",
-                    e
-                )));
-            }
-        };
+//         // collect every non-bought item from the shopping list
+//         let items = match app_state.get_unbought_shopping_list_items().await {
+//             Ok(items) => items,
+//             Err(e) => {
+//                 return Err(CommandResponse::InternalFailure(format!(
+//                     "error communicating with database: {}",
+//                     e
+//                 )));
+//             }
+//         };
 
-        let channel = cmd_interaction.channel_id();
+//         let channel = cmd_interaction.channel_id();
 
-        // for each item, send a message to the shopping channel
-        for item in items {
-            let shop = Shop {
-                item: item.item.as_ref(),
-                personal: item.personal,
-                quantity: item.quantity,
-                store: item.store.as_deref(),
-                notes: item.notes.as_deref(),
-            };
+//         // for each item, send a message to the shopping channel
+//         for item in items {
+//             let shop = Shop {
+//                 item: item.item.as_ref(),
+//                 personal: item.personal,
+//                 quantity: item.quantity,
+//                 store: item.store.as_deref(),
+//                 notes: item.notes.as_deref(),
+//             };
 
-            let resp = create_new_shopping(&shop).await?;
+//             let resp = create_new_shopping(&shop).await?;
 
-            let new_msg = match channel.send_message(&ctx, resp).await {
-                Ok(m) => m,
-                Err(e) => {
-                    error!(
-                        "error communicating with discord to send shopping list item: {}",
-                        e
-                    );
-                    return Err(CommandResponse::InternalFailure(format!(
-                        "error communicating with discord: {}",
-                        e
-                    )));
-                }
-            };
+//             let new_msg = match channel.send_message(&ctx, resp).await {
+//                 Ok(m) => m,
+//                 Err(e) => {
+//                     error!(
+//                         "error communicating with discord to send shopping list item: {}",
+//                         e
+//                     );
+//                     return Err(CommandResponse::InternalFailure(format!(
+//                         "error communicating with discord: {}",
+//                         e
+//                     )));
+//                 }
+//             };
 
-            push_list_item_to_database(shop, app_state, cmd_interaction, ctx, new_msg.id.into())
-                .await?;
+//             push_list_item_to_database(shop, app_state, cmd_interaction, ctx, new_msg.id.into())
+//                 .await?;
 
-            // mark old item as bought in the database
-            if let Err(e) = app_state
-                .set_shopping_list_item_bought(item.user_id as u64, item.message_id as u64, true)
-                .await
-            {
-                return Err(CommandResponse::InternalFailure(format!(
-                    "error communicating with database: {}",
-                    e
-                )));
-            }
+//             // mark old item as bought in the database
+//             if let Err(e) = app_state
+//                 .set_shopping_list_item_bought(item.user_id as u64, item.message_id as u64, true)
+//                 .await
+//             {
+//                 return Err(CommandResponse::InternalFailure(format!(
+//                     "error communicating with database: {}",
+//                     e
+//                 )));
+//             }
 
-            let ex_embed = match channel.message(&ctx, item.message_id as u64).await {
-                Ok(m) => m.embeds.first().unwrap().clone(),
-                Err(e) => {
-                    error!("error communicating with discord to get old message: {}", e);
-                    return Err(CommandResponse::InternalFailure(format!(
-                        "error communicating with discord: {}",
-                        e
-                    )));
-                }
-            };
+//             let ex_embed = match channel.message(&ctx, item.message_id as u64).await {
+//                 Ok(m) => m.embeds.first().unwrap().clone(),
+//                 Err(e) => {
+//                     error!("error communicating with discord to get old message: {}", e);
+//                     return Err(CommandResponse::InternalFailure(format!(
+//                         "error communicating with discord: {}",
+//                         e
+//                     )));
+//                 }
+//             };
 
-            // edit the old message to show that it has been refreshed
-            if let Err(e) = channel
-                .edit_message(
-                    ctx,
-                    item.message_id as u64,
-                    EditMessage::new()
-                        .embed(
-                            CreateEmbed::new()
-                                .description(format!(
-                                    "(REFRESHED) ~~{}~~",
-                                    ex_embed
-                                        .description
-                                        .as_ref()
-                                        .expect("description not found")
-                                ))
-                                .color(EmbedColor::Blue as u32),
-                        )
-                        .components(vec![]),
-                )
-                .await
-            {
-                error!(
-                    "error communicating with discord to edit old message: {}",
-                    e
-                );
-                return Err(CommandResponse::InternalFailure(format!(
-                    "error communicating with discord to edit old message: {}",
-                    e
-                )));
-            }
-        }
+//             // edit the old message to show that it has been refreshed
+//             if let Err(e) = channel
+//                 .edit_message(
+//                     ctx,
+//                     item.message_id as u64,
+//                     EditMessage::new()
+//                         .embed(
+//                             CreateEmbed::new()
+//                                 .description(format!(
+//                                     "(REFRESHED) ~~{}~~",
+//                                     ex_embed
+//                                         .description
+//                                         .as_ref()
+//                                         .expect("description not found")
+//                                 ))
+//                                 .color(EmbedColor::Blue as u32),
+//                         )
+//                         .components(vec![]),
+//                 )
+//                 .await
+//             {
+//                 error!(
+//                     "error communicating with discord to edit old message: {}",
+//                     e
+//                 );
+//                 return Err(CommandResponse::InternalFailure(format!(
+//                     "error communicating with discord to edit old message: {}",
+//                     e
+//                 )));
+//             }
+//         }
 
-        Ok(CommandResponse::NoResponse)
-    }
-}
+//         Ok(CommandResponse::NoResponse)
+//     }
+// }
