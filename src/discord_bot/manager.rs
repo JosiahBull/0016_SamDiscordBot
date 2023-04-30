@@ -187,6 +187,7 @@ impl<T: Send + Sync + 'static + Clone + TypeMapKey<Value = T>> DiscordBot<T> {
                                     Interaction::Component(ref c) => c.guild_id,
                                     Interaction::Autocomplete(ref c) => c.guild_id,
                                     Interaction::Modal(ref c) => c.guild_id,
+                                    _ => todo!("Currently, all branches are covered - more may become available in the future!"),
                                 };
 
                                 let guild_id: u64 = match guild_id {

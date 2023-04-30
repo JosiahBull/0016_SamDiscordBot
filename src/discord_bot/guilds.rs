@@ -179,10 +179,7 @@ impl GuildHandler {
 
             self.handle = Some(tokio::task::spawn(async move {
                 // register all commands
-                while let Err(e) = guild
-                    .set_application_commands(&context, application_command())
-                    .await
-                {
+                while let Err(e) = guild.set_commands(&context, application_command()).await {
                     error!("failed to register commands for guild {}: {}", guild, e);
                     tokio::time::sleep(Duration::from_secs(10)).await;
                 }
