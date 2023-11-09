@@ -1,6 +1,5 @@
 mod discord_bot;
 mod google_api;
-mod trademe_api;
 
 mod healthcheck;
 
@@ -12,7 +11,7 @@ use std::process::exit;
 
 use crate::{
     discord_bot::DiscordBot, google_api::maps::GoogleMapsApi, logging::configure_logger,
-    state::AppState, trademe_api::TrademeApi,
+    state::AppState,
 };
 
 #[tokio::main]
@@ -30,7 +29,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let discord_token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
     let google_maps_token =
         std::env::var("GOOGLE_MAPS_TOKEN").expect("GOOGLE_MAPS_TOKEN must be set");
-    let geckodriver_url = std::env::var("GECKO_DRIVER").expect("GECKO_DRIVER must be set");
 
     info!("spawning google maps handler");
     let mut google_maps_api_handler = GoogleMapsApi::builder().key(google_maps_token).build();
@@ -39,17 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         google_maps_api_handler.run().await;
     });
 
-    info!("spawning trademe handler");
-    let mut trademe_api_handler = TrademeApi::builder()
-        .gecko_driver_url(geckodriver_url)
-        .build()
-        .await;
-    let trademe_api_handle = trademe_api_handler.handle();
-    let trademe_thread_handle = tokio::spawn(async move {
-        trademe_api_handler.run().await;
-    });
-
-    let state = AppState::new(database_url, google_maps_api_handle, trademe_api_handle).await?;
+    let state = AppState::new(database_url, google_maps_api_handle).await?;
 
     info!("spawning discord handler");
     let discord_state = state.clone();
@@ -97,7 +85,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tokio::pin!(discord_handle);
     tokio::pin!(google_maps_thread_handle);
-    tokio::pin!(trademe_thread_handle);
     tokio::pin!(healthcheck_handle);
 
     loop {
@@ -115,11 +102,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             _ = google_maps_thread_handle => {
                 info!("google maps handler shut down");
-                break;
-            }
-
-            _ = trademe_thread_handle => {
-                info!("trademe handler shut down");
                 break;
             }
 

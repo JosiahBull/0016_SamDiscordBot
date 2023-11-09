@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Josiah Bull <josiah.bull7@gmail.com>"]
 
 [dependencies]
-chrono = { version = "0.4.24", features = ["clock"]}
+chrono = { version = "0.4.24", features = ["clock"] }
 
 rand = "0.8.5"
 
@@ -13,15 +13,15 @@ tokio = { version = "1", features = ["full"] }
 serenity = { git="https://github.com/serenity-rs/serenity", branch="next", default-features = false, features = ["full"] }
 
 # distance command
-reqwest = { version = "0.11.17", features = ["json"] }
+reqwest = { version = "0.11.17", default-features = false, features = ["json", "serde_json", "tokio-rustls"] }
 serde = { version = "1.0.160", features = ["derive"] }
 serde_json = "1.0.96"
-fantoccini = "0.19.3"
+fantoccini = { version = "0.19.3", default-features = false, features = ["rustls-tls"] }
 
 # database
 entity = { path = "entity" }
 migration = { path = "migration" }
-sea-orm = { version = "0.10.7", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros", "postgres-array" ] }
+sea-orm = { version = "0.10.7", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros", "postgres-array"] }
 
 # config
 lazy_static = "1.4.0"
@@ -32,7 +32,7 @@ log = "0.4.17"
 fern = "0.6.2"
 
 # healthcheck
-warp = { version = "0.3.5", default-features = false, features = [] }
+warp = { version = "0.3.5", default-features = false, features = ["tokio-rustls"] }
 
 [workspace]
 members = [

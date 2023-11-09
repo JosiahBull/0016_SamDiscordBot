@@ -15,8 +15,6 @@ jobs:
         include:
           - context: .
             image: tombot
-          - context: gecko
-            image: tombot-gecko-driver
     permissions:
       contents: read
       packages: write

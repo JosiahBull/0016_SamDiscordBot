@@ -11,7 +11,7 @@ use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use serde::Deserialize;
 use serenity::prelude::TypeMapKey;
 
-use crate::{google_api::maps::GoogleMapsApiHandle, trademe_api::TrademeApiHandle};
+use crate::google_api::maps::GoogleMapsApiHandle;
 
 #[derive(Deserialize)]
 pub struct TomlConfig {
@@ -45,7 +45,6 @@ lazy_static! {
 /// A connection to the database, representing the stored "state" of the app
 pub struct AppState {
     pub google_api: Arc<RwLock<GoogleMapsApiHandle>>,
-    pub trademe_api: Arc<RwLock<TrademeApiHandle>>,
 
     pub database: Arc<DatabaseConnection>,
 
@@ -57,7 +56,6 @@ impl AppState {
     pub async fn new(
         database_url: String,
         google_api: GoogleMapsApiHandle,
-        trademe_api: TrademeApiHandle,
     ) -> Result<Self, Box<dyn Error>> {
         let mut opt = ConnectOptions::new(database_url);
         opt.max_connections(100)
@@ -81,7 +79,6 @@ impl AppState {
 
         Ok(Self {
             google_api: Arc::new(RwLock::new(google_api)),
-            trademe_api: Arc::new(RwLock::new(trademe_api)),
 
             database: Arc::new(connection),
 
@@ -92,10 +89,6 @@ impl AppState {
 
     pub fn maps_api(&self) -> GoogleMapsApiHandle {
         self.google_api.read().unwrap().clone()
-    }
-
-    pub fn trademe_api(&self) -> TrademeApiHandle {
-        self.trademe_api.read().unwrap().clone()
     }
 }
 
@@ -109,7 +102,6 @@ impl Clone for AppState {
     fn clone(&self) -> Self {
         Self {
             google_api: self.google_api.clone(),
-            trademe_api: self.trademe_api.clone(),
 
             database: self.database.clone(),
 

@@ -8,7 +8,6 @@ use serenity::{
 
 use crate::{
     discord_bot::commands::{
-        distance::DistanceCommand,
         hide::HideCommand,
         pay::{PayAllCommand, PayCommand},
         ping::PingCommand,
@@ -166,7 +165,7 @@ pub fn application_command() -> Vec<CreateCommand> {
         HideCommand,
         PingCommand,
         SayCommand,
-        DistanceCommand,
+        // DistanceCommand,
         PayCommand,
         PayAllCommand,
         Shop,
@@ -187,7 +186,7 @@ pub async fn command<'a>(
         HideCommand,
         PingCommand,
         SayCommand,
-        DistanceCommand,
+        // DistanceCommand,
         PayCommand,
         PayAllCommand,
         Shop,

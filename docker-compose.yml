@@ -20,23 +20,11 @@ services:
     networks:
       tombot_backend:
         ipv4_address: 10.10.0.2
-  geckodriver:
-    image: ghcr.io/josiahbull/tombot-gecko-driver:main
-    container_name: geckodriver
-    restart: always
-    ports:
-      - 4444:4444
-    environment:
-      - TZ="Pacific/Auckland"
-    networks:
-      tombot_backend:
-        ipv4_address: 10.10.0.4
 
   tombot:
     image: ghcr.io/josiahbull/tombot:main
     container_name: tombot
     depends_on:
-      - geckodriver
       - postgres
     restart: always
     environment:
@@ -45,7 +33,6 @@ services:
       - POSTGRES_USER
       - POSTGRES_PASS
       - TZ
-      - GECKO_DRIVER=http://10.10.0.4:4444/
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=tombot

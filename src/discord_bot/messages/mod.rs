@@ -1,6 +1,4 @@
-mod trademe;
-
-use crate::{discord_bot::messages::trademe::TrademeDistance, state::AppState};
+use crate::state::AppState;
 use serenity::{async_trait, model::prelude::Message, prelude::Context};
 
 #[async_trait]
@@ -41,7 +39,7 @@ pub async fn non_command_message(
     app_state: &AppState,
     ctx: &Context,
 ) -> Result<(), String> {
-    reactor!(message, app_state, ctx, TrademeDistance);
+    // reactor!(message, app_state, ctx, );
 
     Ok(())
 }
