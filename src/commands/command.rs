@@ -6,16 +6,7 @@ use serenity::{
     prelude::Context,
 };
 
-use crate::{
-    discord_bot::commands::{
-        hide::HideCommand,
-        pay::{PayAllCommand, PayCommand},
-        ping::PingCommand,
-        say::SayCommand,
-        shop::Shop,
-    },
-    state::AppState,
-};
+use crate::{commands::{HideCommand, PingCommand, SayCommand}, state::AppState};
 
 use super::util::CommandResponse;
 
@@ -39,7 +30,7 @@ pub trait Command<'a>: TryFrom<&'a CommandInteraction> {
         interaction: &'b CommandInteraction,
         app_state: &'b AppState,
         context: &'b Context,
-    ) -> Result<CommandResponse, CommandResponse>;
+    ) -> Result<CommandResponse<'b>, CommandResponse<'b>>;
 }
 
 /// A command that has support for autocomplete responses
@@ -51,7 +42,7 @@ pub trait AutocompleteCommand<'a>: Command<'a> {
         message: &'c AutocompleteOption,
         app_state: &'c AppState,
         context: &'c Context,
-    ) -> Result<CreateAutocompleteResponse, CommandResponse>;
+    ) -> Result<CreateAutocompleteResponse<'c>, CommandResponse<'c>>;
 }
 
 /// A command with a followup interaction component which must be handled
@@ -69,7 +60,7 @@ pub trait InteractionCommand<'a>: Command<'a> {
         interaction: &'b ComponentInteraction,
         app_state: &'b AppState,
         context: &'b Context,
-    ) -> Result<CommandResponse, CommandResponse>;
+    ) -> Result<CommandResponse<'b>, CommandResponse<'b>>;
 }
 
 // #[async_trait]
@@ -158,18 +149,13 @@ macro_rules! interaction {
     };
 }
 
-pub fn application_command() -> Vec<CreateCommand> {
+pub fn application_command<'a>() -> Vec<CreateCommand<'a>> {
     let mut base = vec![];
     application_command!(
         &mut base,
         HideCommand,
         PingCommand,
         SayCommand,
-        // DistanceCommand,
-        PayCommand,
-        PayAllCommand,
-        Shop,
-        // ShoppingComplete,
     );
     base
 }
@@ -178,7 +164,7 @@ pub async fn command<'a>(
     command: &'a CommandInteraction,
     app_state: &'a AppState,
     context: &'a Context,
-) -> Result<CommandResponse, CommandResponse> {
+) -> Result<CommandResponse<'a>, CommandResponse<'a>> {
     command!(
         command,
         app_state,
@@ -186,31 +172,22 @@ pub async fn command<'a>(
         HideCommand,
         PingCommand,
         SayCommand,
-        // DistanceCommand,
-        PayCommand,
-        PayAllCommand,
-        Shop,
-        // ShoppingComplete,
     )
 }
 
 #[allow(dead_code, unused_variables)]
 pub async fn autocomplete<'a>(
-    command: &'a CommandInteraction,
-    app_state: &'a AppState,
-    context: &'a Context,
-) -> Result<CreateAutocompleteResponse, CommandResponse> {
-    autocomplete!(command, app_state, context, PayCommand, PayAllCommand, Shop)
+    _command: &'a CommandInteraction,
+    _app_state: &'a AppState,
+    _context: &'a Context,
+) -> Result<CreateAutocompleteResponse<'a>, CommandResponse<'a>> {
+    autocomplete!(command, app_state, context, )
 }
 
 pub async fn interaction<'a>(
-    command: &'a ComponentInteraction,
-    app_state: &'a AppState,
-    context: &'a Context,
-) -> Result<CommandResponse, CommandResponse> {
-    interaction!(
-        command, app_state, context, PayCommand, // also handles PayAllCommand
-        Shop,
-        // ShoppingList
-    )
+    _command: &'a ComponentInteraction,
+    _app_state: &'a AppState,
+    _context: &'a Context,
+) -> Result<CommandResponse<'a>, CommandResponse<'a>> {
+    interaction!(command, app_state, context, )
 }

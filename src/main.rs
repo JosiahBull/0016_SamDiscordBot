@@ -1,18 +1,18 @@
-mod discord_bot;
-mod google_api;
-
+mod commands;
+mod messages;
+mod common;
+mod database;
+mod guilds;
+mod handler;
 mod healthcheck;
-
 mod logging;
+mod manager;
 mod state;
 
 use log::{error, info};
 use std::process::exit;
 
-use crate::{
-    discord_bot::DiscordBot, google_api::maps::GoogleMapsApi, logging::configure_logger,
-    state::AppState,
-};
+use crate::{logging::configure_logger, manager::DiscordBot, state::AppState};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,19 +27,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var("POSTGRES_DB").expect("POSTGRES_DB must be set")
     );
     let discord_token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set");
-    let google_maps_token =
-        std::env::var("GOOGLE_MAPS_TOKEN").expect("GOOGLE_MAPS_TOKEN must be set");
 
-    info!("spawning google maps handler");
-    let mut google_maps_api_handler = GoogleMapsApi::builder().key(google_maps_token).build();
-    let google_maps_api_handle = google_maps_api_handler.handle();
-    let google_maps_thread_handle = tokio::spawn(async move {
-        google_maps_api_handler.run().await;
-    });
+    let state = AppState::new(database_url).await?;
 
-    let state = AppState::new(database_url, google_maps_api_handle).await?;
-
-    info!("spawning discord handler");
+    info!("Spawning discord handler.");
     let discord_state = state.clone();
     let discord_handle = tokio::task::spawn(async move {
         let builder = DiscordBot::builder()
@@ -50,17 +41,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let bot = match builder {
             Ok(bot) => bot,
             Err(e) => {
-                error!("failed to build discord bot: {}", e);
+                error!("Failed to build discord bot: '{}'.", e);
                 return;
             }
         };
 
         if let Err(e) = bot.run().await {
-            error!("failed to run discord bot: {}", e);
+            error!("Failed to run discord bot: '{}'.", e);
             exit(1);
         }
 
-        info!("discord bot shut down");
+        info!("Discord bot shut down.");
     });
 
     info!("creating healthcheck server");
@@ -73,46 +64,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut server = match builder.await {
             Ok(server) => server,
             Err(e) => {
-                error!("failed to build healthcheck server: {}", e);
+                error!("Failed to build healthcheck server: '{}'.", e);
                 return;
             }
         };
 
         server.run().await;
 
-        info!("healthcheck server shut down");
+        info!("Healthcheck server shut down.");
     });
 
     tokio::pin!(discord_handle);
-    tokio::pin!(google_maps_thread_handle);
     tokio::pin!(healthcheck_handle);
 
-    loop {
-        tokio::select! {
-            biased;
-            _ = tokio::signal::ctrl_c() => {
-                info!("received ctrl-c, shutting down");
-                break;
-            }
+    // loop {
+    //     tokio::select! {
+    //         biased;
+    //         _ = tokio::signal::ctrl_c() => {
+    //             info!("Received ctrl-c, shutting down.");
+    //             break;
+    //         }
 
-            _ = &mut discord_handle => {
-                info!("discord handler shut down");
-                break;
-            }
+    //         _ = &mut discord_handle => {
+    //             info!("Discord handler shut down.");
+    //             break;
+    //         }
 
-            _ = google_maps_thread_handle => {
-                info!("google maps handler shut down");
-                break;
-            }
+    //         _ = healthcheck_handle => {
+    //             info!("Healthcheck server shut down.");
+    //             break;
+    //         }
+    //     }
+    // }
 
-            _ = healthcheck_handle => {
-                info!("healthcheck server shut down");
-                break;
-            }
-        }
-    }
-
-    info!("global TomBot shutdown");
+    info!("Global TomBot Shutdown.");
 
     Ok(())
 }

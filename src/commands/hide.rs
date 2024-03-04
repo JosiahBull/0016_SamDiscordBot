@@ -38,7 +38,7 @@ impl<'a> Command<'a> for HideCommand {
         _: &'b CommandInteraction,
         _: &'b AppState,
         _: &'b Context,
-    ) -> Result<CommandResponse, CommandResponse> {
+    ) -> Result<CommandResponse<'b>, CommandResponse<'b>> {
         Ok(CommandResponse::ComplexSuccess(
             CreateInteractionResponse::Message(CreateInteractionResponseMessage::new().content("​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​​\n​​\n​​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​​\n​​\n​​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n​\n"))
         ))

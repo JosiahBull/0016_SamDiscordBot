@@ -16,11 +16,11 @@ pub enum FailureMessageKind {
 /// has both basic and complex success and failure states
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub enum CommandResponse {
+pub enum CommandResponse<'a> {
     /// a basic success, will return the contained string in a simple message to the user
     BasicSuccess(String),
     /// a complex success, will return the contained interaction response exactly to the user
-    ComplexSuccess(CreateInteractionResponse),
+    ComplexSuccess(CreateInteractionResponse<'a>),
     /// a basic failure, will return the contained string in a simple message to the user
     /// and log the message to the console
     BasicFailure(String),
@@ -41,7 +41,7 @@ pub enum CommandResponse {
     NoResponse,
 }
 
-impl CommandResponse {
+impl<'a> CommandResponse<'a> {
     /// Get the log message to write to the console, if it exists
     pub fn get_log_message(&self) -> Option<&str> {
         match self {
@@ -74,7 +74,7 @@ impl CommandResponse {
     }
 
     /// generate a response to be sent to the user from the CommandResponse type
-    pub fn generate_response(self) -> Option<CreateInteractionResponse> {
+    pub fn generate_response(self) -> Option<CreateInteractionResponse<'a>> {
         match self {
             CommandResponse::BasicSuccess(message) => Some(CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::default()

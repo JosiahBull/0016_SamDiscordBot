@@ -1,10 +1,15 @@
+#![allow(unused_imports)]
+
 mod command;
 mod util;
 
 mod hide;
-mod pay;
 mod ping;
 mod say;
-mod shop;
 
 pub use command::{application_command, autocomplete, command, interaction};
+pub use {
+    hide::HideCommand,
+    ping::PingCommand,
+    say::SayCommand,
+};

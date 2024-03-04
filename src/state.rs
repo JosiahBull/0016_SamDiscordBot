@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    sync::{atomic::AtomicU64, Arc, RwLock},
+    sync::{atomic::AtomicU64, Arc},
     time::Duration,
 };
 
@@ -9,9 +9,6 @@ use log::info;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use serde::Deserialize;
-use serenity::prelude::TypeMapKey;
-
-use crate::google_api::maps::GoogleMapsApiHandle;
 
 #[derive(Deserialize)]
 pub struct TomlConfig {
@@ -44,8 +41,6 @@ lazy_static! {
 
 /// A connection to the database, representing the stored "state" of the app
 pub struct AppState {
-    pub google_api: Arc<RwLock<GoogleMapsApiHandle>>,
-
     pub database: Arc<DatabaseConnection>,
 
     pub start_time: std::time::Instant,
@@ -55,7 +50,6 @@ pub struct AppState {
 impl AppState {
     pub async fn new(
         database_url: String,
-        google_api: GoogleMapsApiHandle,
     ) -> Result<Self, Box<dyn Error>> {
         let mut opt = ConnectOptions::new(database_url);
         opt.max_connections(100)
@@ -78,17 +72,11 @@ impl AppState {
         info!("config loaded");
 
         Ok(Self {
-            google_api: Arc::new(RwLock::new(google_api)),
-
             database: Arc::new(connection),
 
             start_time: std::time::Instant::now(),
             num_connected: Arc::new(AtomicU64::new(0)),
         })
-    }
-
-    pub fn maps_api(&self) -> GoogleMapsApiHandle {
-        self.google_api.read().unwrap().clone()
     }
 }
 
@@ -101,16 +89,10 @@ impl std::fmt::Debug for AppState {
 impl Clone for AppState {
     fn clone(&self) -> Self {
         Self {
-            google_api: self.google_api.clone(),
-
             database: self.database.clone(),
 
             start_time: self.start_time,
             num_connected: self.num_connected.clone(),
         }
     }
-}
-
-impl TypeMapKey for AppState {
-    type Value = AppState;
 }

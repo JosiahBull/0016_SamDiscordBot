@@ -62,7 +62,7 @@ impl<'a> Command<'a> for SayCommand<'a> {
         interaction: &'b CommandInteraction,
         _: &'b AppState,
         ctx: &'b Context,
-    ) -> Result<CommandResponse, CommandResponse> {
+    ) -> Result<CommandResponse<'b>, CommandResponse<'b>> {
         if let Err(e) = interaction
             .channel_id
             .send_message(ctx, CreateMessage::new().content(self.message))
